@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -21,6 +22,16 @@ import org.koin.compose.koinInject
 @Composable
 fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
     val state by viewModel.uiState.collectAsState()
+    var tabSeleccionada by remember { mutableStateOf(0) }
+
+    val productosFiltrados = remember(state.productos, tabSeleccionada) {
+        when (tabSeleccionada) {
+            0 -> state.productos.filter { it.activo }
+            1 -> state.productos.filter { !it.activo }
+            2 -> state.productos.filter { it.stock <= 5 }
+            else -> state.productos
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -143,7 +154,7 @@ fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
             }
         }
 
-        // Registered Products Section
+        // Registered Products Section with TabRow
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -156,7 +167,32 @@ fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
 
-            if (state.productos.isEmpty()) {
+            TabRow(
+                selectedTabIndex = tabSeleccionada,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp)),
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary
+            ) {
+                Tab(
+                    selected = tabSeleccionada == 0,
+                    onClick = { tabSeleccionada = 0 },
+                    text = { Text("Activos (${state.productos.count { it.activo }})", fontWeight = FontWeight.SemiBold) }
+                )
+                Tab(
+                    selected = tabSeleccionada == 1,
+                    onClick = { tabSeleccionada = 1 },
+                    text = { Text("Inactivos (${state.productos.count { !it.activo }})", fontWeight = FontWeight.SemiBold) }
+                )
+                Tab(
+                    selected = tabSeleccionada == 2,
+                    onClick = { tabSeleccionada = 2 },
+                    text = { Text("Bajo stock (${state.productos.count { it.stock <= 5 }})", fontWeight = FontWeight.SemiBold) }
+                )
+            }
+
+            if (productosFiltrados.isEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -165,7 +201,7 @@ fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
                     )
                 ) {
                     Text(
-                        text = "No hay productos registrados en el inventario.",
+                        text = "No hay productos en esta categoría.",
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(24.dp),
@@ -175,7 +211,7 @@ fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
                     )
                 }
             } else {
-                state.productos.forEach { producto ->
+                productosFiltrados.forEach { producto ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
@@ -195,12 +231,35 @@ fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Text(
-                                    text = producto.nombre,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = producto.nombre,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Surface(
+                                        color = if (producto.activo)
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        else
+                                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = if (producto.activo) "Activo" else "Inactivo",
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (producto.activo)
+                                                MaterialTheme.colorScheme.onPrimaryContainer
+                                            else
+                                                MaterialTheme.colorScheme.onErrorContainer,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
                                 Text(
                                     text = "ID: ${producto.id}",
                                     style = MaterialTheme.typography.bodySmall,
@@ -221,7 +280,7 @@ fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
                                 
                                 val stockColor = if (producto.stock == 0) {
                                     MaterialTheme.colorScheme.error
-                                } else if (producto.stock < 10) {
+                                } else if (producto.stock <= 5) {
                                     MaterialTheme.colorScheme.tertiary
                                 } else {
                                     MaterialTheme.colorScheme.secondary

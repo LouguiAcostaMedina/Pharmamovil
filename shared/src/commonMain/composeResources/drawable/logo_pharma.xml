@@ -1,0 +1,19 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="128"
+    android:viewportHeight="128">
+    <!-- Circle Outer Background -->
+    <path
+        android:fillColor="#006A60"
+        android:pathData="M64,8C33.07,8 8,33.07 8,64C8,94.93 33.07,120 64,120C94.93,120 120,94.93 120,64C120,33.07 94.93,8 64,8Z"/>
+    <!-- Medical Cross -->
+    <path
+        android:fillColor="#74F8E5"
+        android:pathData="M54,34H74V54H94V74H74V94H54V74H34V54H54V34Z"/>
+    <!-- Pill Highlight Overlay -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,44C55,33 73,33 84,44C95,55 95,73 84,84L44,44Z"
+        android:fillAlpha="0.2"/>
+</vector>

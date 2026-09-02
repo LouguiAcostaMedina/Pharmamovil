@@ -7,6 +7,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
+// Light Corporate Theme Palette (Pharma Teal & Fresh Surfaces)
 private val LightColorScheme = lightColorScheme(
     primary = Color(0xFF006A60),
     onPrimary = Color(0xFFFFFFFF),
@@ -20,14 +21,15 @@ private val LightColorScheme = lightColorScheme(
     onTertiary = Color(0xFFFFFFFF),
     tertiaryContainer = Color(0xFFCCE5FF),
     onTertiaryContainer = Color(0xFF001E31),
-    background = Color(0xFFFAFDFB),
-    onBackground = Color(0xFF191C1C),
-    surface = Color(0xFFFAFDFB),
-    onSurface = Color(0xFF191C1C),
+    background = Color(0xFFF8FCFA),
+    onBackground = Color(0xFF111D1B),
+    surface = Color(0xFFF4FBF9),
+    onSurface = Color(0xFF111D1B),
     surfaceVariant = Color(0xFFDAE5E1),
     onSurfaceVariant = Color(0xFF3F4946)
 )
 
+// Dark Calibrated Slate Palette (Avoids harsh binary black/white inversion)
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFF53DBC9),
     onPrimary = Color(0xFF003731),
@@ -41,11 +43,11 @@ private val DarkColorScheme = darkColorScheme(
     onTertiary = Color(0xFF133348),
     tertiaryContainer = Color(0xFF2C4961),
     onTertiaryContainer = Color(0xFFCCE5FF),
-    background = Color(0xFF0F1413),
+    background = Color(0xFF101514),
     onBackground = Color(0xFFE1E3E2),
-    surface = Color(0xFF0F1413),
+    surface = Color(0xFF161D1C),
     onSurface = Color(0xFFE1E3E2),
-    surfaceVariant = Color(0xFF3F4946),
+    surfaceVariant = Color(0xFF26302E),
     onSurfaceVariant = Color(0xFFBEC9C5)
 )
 

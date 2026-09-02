@@ -1,5 +1,6 @@
 package pe.edu.upeu.pharmamobile.presentation.navigation
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,6 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.jetbrains.compose.resources.painterResource
+import pharmamobile.shared.generated.resources.Res
+import pharmamobile.shared.generated.resources.logo_pharma
 
 sealed class Screen(val title: String, val icon: ImageVector) {
     data object Inicio : Screen("Inicio", Icons.Default.Home)
@@ -32,25 +36,24 @@ fun InicioScreen() {
         contentAlignment = Alignment.Center
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth(0.9f),
-            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth(0.85f),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                containerColor = MaterialTheme.colorScheme.surface
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Column(
                 modifier = Modifier
-                    .padding(32.dp)
+                    .padding(36.dp)
                     .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "Inicio",
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                Image(
+                    painter = painterResource(Res.drawable.logo_pharma),
+                    contentDescription = "PharmaMobil Logo",
+                    modifier = Modifier.size(100.dp)
                 )
                 Text(
                     text = "¡Bienvenido a PharmaMobil! 💊",
@@ -60,7 +63,7 @@ fun InicioScreen() {
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "Sistema de Gestión Farmacéutica en Kotlin Multiplatform.\nUtiliza el menú lateral para navegar entre las distintas funciones.",
+                    text = "Sistema de Gestión Farmacéutica en Kotlin Multiplatform.\nUtiliza la barra o menú lateral para navegar entre las distintas funciones de la aplicación.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -80,10 +83,10 @@ fun ClientesScreen() {
         contentAlignment = Alignment.Center
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth(0.9f),
-            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth(0.85f),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                containerColor = MaterialTheme.colorScheme.surface
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
@@ -128,10 +131,10 @@ fun PedidosScreen() {
         contentAlignment = Alignment.Center
     ) {
         Card(
-            modifier = Modifier.fillMaxWidth(0.9f),
-            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth(0.85f),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                containerColor = MaterialTheme.colorScheme.surface
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
