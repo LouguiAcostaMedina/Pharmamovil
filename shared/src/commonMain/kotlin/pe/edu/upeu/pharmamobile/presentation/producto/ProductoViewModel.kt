@@ -1,29 +1,19 @@
 package pe.edu.upeu.pharmamobile.presentation.producto
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import pe.edu.upeu.pharmamobile.domain.model.Producto
-import pe.edu.upeu.pharmamobile.domain.usecase.GetProductsUseCase
-import pe.edu.upeu.pharmamobile.domain.usecase.RegisterProductUseCase
-
-data class ProductoUiState(
-    val nombre: String = "",
-    val precio: String = "",
-    val stock: String = "",
-    val nombreError: String? = null,
-    val precioError: String? = null,
-    val stockError: String? = null,
-    val mensaje: String = "",
-    val esExito: Boolean = false,
-    val productos: List<Producto> = emptyList()
-)
+import pe.edu.upeu.pharmamobile.domain.repository.ProductoRepository
+import pe.edu.upeu.pharmamobile.domain.usecase.RegistrarProductoUseCase
 
 class ProductoViewModel(
-    private val registerProductUseCase: RegisterProductUseCase,
-    private val getProductsUseCase: GetProductsUseCase
+    private val registrarProductoUseCase: RegistrarProductoUseCase,
+    private val repository: ProductoRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProductoUiState())
@@ -34,8 +24,19 @@ class ProductoViewModel(
     }
 
     fun cargarProductos() {
-        val lista = getProductsUseCase()
-        _uiState.update { it.copy(productos = lista) }
+        viewModelScope.launch {
+            _uiState.update { it.copy(fase = ProductoUiState.Fase.Cargando) }
+            try {
+                val lista = repository.listar()
+                if (lista.isEmpty()) {
+                    _uiState.update { it.copy(fase = ProductoUiState.Fase.SinProductos) }
+                } else {
+                    _uiState.update { it.copy(fase = ProductoUiState.Fase.ConProductos(lista)) }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(fase = ProductoUiState.Fase.Error(e.message ?: "Error desconocido")) }
+            }
+        }
     }
 
     fun onNombreChange(nuevoNombre: String) {
@@ -51,88 +52,41 @@ class ProductoViewModel(
     }
 
     fun registrarProducto() {
-        // Clear previous state errors and status message
         _uiState.update { 
-            it.copy(
-                nombreError = null,
-                precioError = null,
-                stockError = null,
-                mensaje = "",
-                esExito = false
-            )
+            it.copy(nombreError = null, precioError = null, stockError = null, mensaje = "", esExito = false)
         }
-
         val currentState = _uiState.value
 
-        // 1. Validate Nombre (no vacío / isNotBlank)
-        if (currentState.nombre.isBlank()) {
-            _uiState.update {
-                it.copy(
-                    nombreError = "El nombre no puede estar vacío",
-                    mensaje = "Error de validación",
-                    esExito = false
-                )
-            }
-            return
-        }
+        viewModelScope.launch {
+            val p = Producto(
+                nombre = currentState.nombre,
+                precio = currentState.precio.toDoubleOrNull() ?: 0.0,
+                stock = currentState.stock.toIntOrNull() ?: 0
+            )
 
-        // 2. Validate Precio (numérico y > 0)
-        val precioDouble = currentState.precio.toDoubleOrNull()
-        if (precioDouble == null || precioDouble <= 0.0) {
-            _uiState.update {
-                it.copy(
-                    precioError = "Ingrese un precio válido y mayor a 0",
-                    mensaje = "Error de validación",
-                    esExito = false
-                )
-            }
-            return
-        }
-
-        // 3. Validate Stock (entero y >= 0)
-        val stockInt = currentState.stock.toIntOrNull()
-        if (stockInt == null || stockInt < 0) {
-            _uiState.update {
-                it.copy(
-                    stockError = "Ingrese un stock entero mayor o igual a 0",
-                    mensaje = "Error de validación",
-                    esExito = false
-                )
-            }
-            return
-        }
-
-        // If validation passes, attempt registration
-        val result = registerProductUseCase(
-            nombre = currentState.nombre,
-            precioStr = currentState.precio,
-            stockStr = currentState.stock
-        )
-        
-        result.fold(
-            onSuccess = { producto ->
-                _uiState.update {
-                    it.copy(
-                        nombre = "",
-                        precio = "",
-                        stock = "",
-                        nombreError = null,
-                        precioError = null,
-                        stockError = null,
-                        mensaje = "Producto registrado: ${producto.nombre} - S/${producto.precio} - Stock: ${producto.stock}",
-                        esExito = true
-                    )
+            val result = registrarProductoUseCase(p)
+            result.fold(
+                onSuccess = { producto ->
+                    _uiState.update {
+                        it.copy(
+                            nombre = "",
+                            precio = "",
+                            stock = "",
+                            mensaje = "Producto registrado exitosamente.",
+                            esExito = true
+                        )
+                    }
+                    cargarProductos()
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            mensaje = error.message ?: "Error al registrar",
+                            esExito = false
+                        )
+                    }
                 }
-                cargarProductos()
-            },
-            onFailure = { throwable ->
-                _uiState.update {
-                    it.copy(
-                        mensaje = throwable.message ?: "Error al registrar producto",
-                        esExito = false
-                    )
-                }
-            }
-        )
+            )
+        }
     }
 }
