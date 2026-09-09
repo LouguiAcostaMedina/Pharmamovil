@@ -8,7 +8,6 @@ plugins {
 }
 
 kotlin {
-    jvm()
 
     listOf(
         iosArm64(),
@@ -61,9 +60,6 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
-        }
-        jvmMain.dependencies {
-            implementation(compose.desktop.currentOs)
         }
     }
 }
