@@ -5,6 +5,7 @@ data class Producto(
     val nombre: String,
     val precio: Double,
     val stock: Int,
+    val activo: Boolean = true // <-- ¡Aquí está el parámetro que faltaba!
 ) {
     val requiereReposicion: Boolean get() = stock <= STOCK_MINIMO
 

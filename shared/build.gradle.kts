@@ -19,6 +19,8 @@ kotlin {
         }
     }
     
+    jvm("desktop")
+    
     android {
        namespace = "pe.edu.upeu.pharmamobile.shared"
        compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -45,11 +47,17 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
         }
+        val desktopMain by getting {
+            dependencies {
+                implementation(compose.desktop.currentOs)
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.0")
+            }
+        }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
-            implementation(compose.materialIconsExtended)
+            implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
             implementation(libs.compose.uiToolingPreview)
@@ -64,6 +72,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }
@@ -75,5 +84,6 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "pe.edu.upeu.pharmamobile.MainKt"
+        jvmArgs("-Dskiko.renderApi=OPENGL")
     }
 }

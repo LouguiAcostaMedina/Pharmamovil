@@ -20,7 +20,7 @@ class RegisterProductUseCase(private val repository: ProductRepository) {
         }
         
         val producto = Producto(
-            id = System.currentTimeMillis(),
+            id = 0,
             nombre = nombre.trim(),
             precio = precio,
             stock = stock
