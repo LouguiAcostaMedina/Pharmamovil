@@ -29,3 +29,15 @@ Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
 ---
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+
+## Guía Práctica 07 - Ktor Client
+
+Este proyecto utiliza Ktor Client para consumir servicios REST. De acuerdo a la Guía Práctica 07, el proyecto consume la API pública de EscuelaJS.
+
+- **Base URL:** `https://api.escuelajs.co/api/v1/`
+- **Endpoint:** `GET products`
+- **Parámetro:** `limit`
+- **Campos DTO:** `id`, `title`, `price`, `description`, `images`, `category`
+- **Comando de prueba:** `curl.exe -i "https://api.escuelajs.co/api/v1/products?offset=0&limit=3"`
+
+*Nota:* PharmaSoft con H2 corresponde a una integración adicional que no forma parte de la API principal utilizada para esta evidencia.

@@ -11,7 +11,8 @@ import pe.edu.upeu.pharmamobile.domain.usecase.RegistrarProductoUseCase
 import pe.edu.upeu.pharmamobile.presentation.producto.ProductoViewModel
 
 val appModule = module {
-    single<ProductoRepository> { ProductoRepositorioKtor() }
+    single { pe.edu.upeu.pharmamobile.data.network.ktorHttpClient }
+    single<ProductoRepository> { ProductoRepositorioKtor(get()) }
     factory { RegistrarProductoUseCase(get()) }
     viewModelOf(::ProductoViewModel)
 }
