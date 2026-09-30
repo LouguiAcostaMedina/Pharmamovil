@@ -1,23 +1,28 @@
 package pe.edu.upeu.pharmamobile.data.repository
 
+import io.ktor.client.call.*
+import io.ktor.client.request.*
+import io.ktor.http.*
 import pe.edu.upeu.pharmamobile.data.model.PaginatedResponse
 import pe.edu.upeu.pharmamobile.data.model.ProductoDto
 import pe.edu.upeu.pharmamobile.data.network.ktorHttpClient
 import pe.edu.upeu.pharmamobile.domain.model.Producto
-import pe.edu.upeu.pharmamobile.domain.repository.ProductRepository
+import pe.edu.upeu.pharmamobile.domain.repository.ProductoRepository
 import pe.edu.upeu.pharmamobile.getPlatform
-import io.ktor.client.call.*
-import io.ktor.client.request.*
-import io.ktor.http.*
 
-class ProductRepositoryImpl : ProductRepository {
+class ProductoRepositorioKtor : ProductoRepository {
     private val baseUrl = if (getPlatform().name.contains("Android")) {
         "http://10.0.2.2:8080"
     } else {
         "http://localhost:8080"
     }
 
-    override suspend fun getProducts(): List<Producto> {
+    override suspend fun registrar(p: Producto): Producto {
+        // Implementar POST luego, por ahora mock
+        return p.copy(id = 999)
+    }
+
+    override suspend fun listar(): List<Producto> {
         return try {
             val response: PaginatedResponse<ProductoDto> = ktorHttpClient.get("$baseUrl/api/v1/productos") {
                 url {
@@ -27,6 +32,7 @@ class ProductRepositoryImpl : ProductRepository {
                     parameters.append("direccion", "asc")
                 }
             }.body()
+
             response.contenido.map { dto ->
                 Producto(
                     id = dto.id,
@@ -40,10 +46,5 @@ class ProductRepositoryImpl : ProductRepository {
             e.printStackTrace()
             emptyList()
         }
-    }
-
-    override fun addProduct(producto: Producto): Boolean {
-        // Mock add for now
-        return true
     }
 }
