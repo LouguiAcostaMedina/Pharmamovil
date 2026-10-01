@@ -2,56 +2,78 @@ package pe.edu.upeu.pharmamobile.data.repository
 
 import io.ktor.client.call.*
 import io.ktor.client.request.*
-import pe.edu.upeu.pharmamobile.data.model.ProductoDto
+import pe.edu.upeu.pharmamobile.data.model.ProductoResponseDto
 import io.ktor.client.*
 import pe.edu.upeu.pharmamobile.domain.model.Producto
 import pe.edu.upeu.pharmamobile.domain.repository.ProductoRepository
 
-class ProductoRepositorioKtor(private val client: HttpClient) : ProductoRepository {
-    override suspend fun registrar(p: Producto): Producto {
-        return p.copy(id = 999)
-    }
+import pe.edu.upeu.pharmamobile.data.network.ProductoApi
+import pe.edu.upeu.pharmamobile.data.network.safeApiCall
+import pe.edu.upeu.pharmamobile.data.model.ProductoRequestDto
 
-    private val baseUrl = if (pe.edu.upeu.pharmamobile.getPlatform().name.contains("Android")) {
-        "http://10.0.2.2:8080/api/v1"
-    } else {
-        "http://localhost:8080/api/v1"
-    }
-
+class ProductoRepositorioKtor(private val api: ProductoApi) : ProductoRepository {
+    
     override suspend fun listar(): List<Producto> {
-        return try {
-            val url = "$baseUrl/productos?pagina=0&tamanio=20&ordenarPor=id&direccion=asc"
-            println("=== LOG: URL solicitada: $url ===")
-            
-            val httpResponse = client.get("$baseUrl/productos") {
-                url {
-                    parameters.append("pagina", "0")
-                    parameters.append("tamanio", "20")
-                    parameters.append("ordenarPor", "id")
-                    parameters.append("direccion", "asc")
-                }
-            }
-            println("=== LOG: status HTTP: ${httpResponse.status} ===")
-            
-            val response: pe.edu.upeu.pharmamobile.data.model.PaginaResponse<ProductoDto> = httpResponse.body()
-            println("=== LOG: cantidad de elementos recibidos: ${response.contenido.size} ===")
-
-            val dominioList = response.contenido.map { dto ->
+        return safeApiCall {
+            val response = api.listar()
+            response.contenido.map { dto ->
                 Producto(
                     id = dto.id,
                     nombre = dto.nombre,
                     precio = dto.precio,
-                    descripcion = "", // Not available in PharmaSoft currently
-                    imagen = "", // Not available
+                    descripcion = "",
+                    imagen = "",
                     categoria = dto.categoriaNombre ?: ""
                 )
             }
-            println("=== LOG: cantidad mapeada al dominio: ${dominioList.size} ===")
-            dominioList
-        } catch (e: Exception) {
-            println("=== LOG: Exception capturada: ${e.message} ===")
-            e.printStackTrace()
-            emptyList()
+        }
+    }
+
+    suspend fun obtener(id: Long): Producto {
+        return safeApiCall {
+            val dto = api.obtener(id)
+            Producto(
+                id = dto.id,
+                nombre = dto.nombre,
+                precio = dto.precio,
+                descripcion = "",
+                imagen = "",
+                categoria = dto.categoriaNombre ?: ""
+            )
+        }
+    }
+
+    override suspend fun registrar(p: Producto): Producto {
+        return safeApiCall {
+            val request = ProductoRequestDto(
+                nombre = p.nombre,
+                precio = p.precio,
+                stock = p.stock,
+                estado = true, // Default
+                categoriaId = 1 // Default for now
+            )
+            val dto = api.crear(request)
+            p.copy(id = dto.id)
+        }
+    }
+
+    suspend fun actualizar(p: Producto): Producto {
+        return safeApiCall {
+            val request = ProductoRequestDto(
+                nombre = p.nombre,
+                precio = p.precio,
+                stock = p.stock,
+                estado = true,
+                categoriaId = 1
+            )
+            val dto = api.actualizar(p.id, request)
+            p.copy(id = dto.id)
+        }
+    }
+
+    suspend fun eliminar(id: Long) {
+        safeApiCall {
+            api.eliminar(id)
         }
     }
 }

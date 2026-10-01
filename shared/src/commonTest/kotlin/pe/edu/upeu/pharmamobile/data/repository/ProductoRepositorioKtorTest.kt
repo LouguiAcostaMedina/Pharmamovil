@@ -14,6 +14,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+import pe.edu.upeu.pharmamobile.data.network.ProductoApi
+import pe.edu.upeu.pharmamobile.domain.model.ErrorApi
+import kotlin.test.assertFailsWith
+
 class ProductoRepositorioKtorTest {
 
     private fun mockHttpClient(handler: MockRequestHandler): HttpClient {
@@ -64,7 +68,8 @@ class ProductoRepositorioKtorTest {
                 headers = headersOf(HttpHeaders.ContentType, "application/json")
             )
         }
-        val repository = ProductoRepositorioKtor(mockEngine)
+        val api = ProductoApi(mockEngine)
+        val repository = ProductoRepositorioKtor(api)
         val productos = repository.listar()
 
         assertEquals(1, productos.size)
@@ -94,7 +99,8 @@ class ProductoRepositorioKtorTest {
                 headers = headersOf(HttpHeaders.ContentType, "application/json")
             )
         }
-        val repository = ProductoRepositorioKtor(mockEngine)
+        val api = ProductoApi(mockEngine)
+        val repository = ProductoRepositorioKtor(api)
         val productos = repository.listar()
 
         assertTrue(productos.isEmpty())
@@ -126,7 +132,8 @@ class ProductoRepositorioKtorTest {
                 headers = headersOf(HttpHeaders.ContentType, "application/json")
             )
         }
-        val repository = ProductoRepositorioKtor(mockEngine)
+        val api = ProductoApi(mockEngine)
+        val repository = ProductoRepositorioKtor(api)
         val productos = repository.listar()
 
         assertEquals(1, productos.size)
@@ -135,27 +142,31 @@ class ProductoRepositorioKtorTest {
     }
 
     @Test
-    fun debe_retornar_lista_vacia_en_error_400_o_500() = runTest {
+    fun debe_lanzar_ErrorApi_Servidor_en_error_500() = runTest {
         val mockEngine = mockHttpClient {
             respond(
                 content = "Internal Server Error",
                 status = HttpStatusCode.InternalServerError
             )
         }
-        val repository = ProductoRepositorioKtor(mockEngine)
-        val productos = repository.listar()
-
-        assertTrue(productos.isEmpty())
+        val api = ProductoApi(mockEngine)
+        val repository = ProductoRepositorioKtor(api)
+        
+        assertFailsWith<ErrorApi.Servidor> {
+            repository.listar()
+        }
     }
 
     @Test
-    fun debe_retornar_lista_vacia_en_error_de_conexion() = runTest {
+    fun debe_lanzar_ErrorApi_Desconocido_en_error_de_conexion() = runTest {
         val mockEngine = mockHttpClient {
             throw Exception("Connection Error")
         }
-        val repository = ProductoRepositorioKtor(mockEngine)
-        val productos = repository.listar()
-
-        assertTrue(productos.isEmpty())
+        val api = ProductoApi(mockEngine)
+        val repository = ProductoRepositorioKtor(api)
+        
+        assertFailsWith<ErrorApi.Desconocido> {
+            repository.listar()
+        }
     }
 }
