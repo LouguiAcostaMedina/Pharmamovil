@@ -30,14 +30,31 @@ Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
 
 Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
 
-## Guía Práctica 07 - Ktor Client
+## Conectividad REST
 
-Este proyecto utiliza Ktor Client para consumir servicios REST. De acuerdo a la Guía Práctica 07, el proyecto consume la API pública de EscuelaJS.
+Esta sección detalla la configuración e integración del cliente Ktor con el backend proporcionado.
 
-- **Base URL:** `https://api.escuelajs.co/api/v1/`
-- **Endpoint:** `GET products`
-- **Parámetro:** `limit`
-- **Campos DTO:** `id`, `title`, `price`, `description`, `images`, `category`
-- **Comando de prueba:** `curl.exe -i "https://api.escuelajs.co/api/v1/products?offset=0&limit=3"`
+- **Backend utilizado:** PharmaSoft (Java Spring Boot)
+- **URL Base:** `http://10.0.2.2:8080/api/v1/` (para Android) / `http://localhost:8080/api/v1/` (para Desktop/iOS)
+- **Puerto:** `8080`
+- **Recurso Principal:** `productos`
+- **Endpoints documentados:**
+  - `GET /productos`
+  - `GET /productos/{id}`
+  - `POST /productos`
+  - `PUT /productos/{id}`
+  - `DELETE /productos/{id}`
+- **Configuración Ktor:** 
+  - `ContentNegotiation` (con `kotlinx.serialization` e `ignoreUnknownKeys = true`).
+  - `Logging` (Nivel ALL).
+  - `HttpTimeout` configurado para evitar bloqueos por latencia de red.
+- **Motores:**
+  - Android: `OkHttp` (configurado implícitamente por Ktor o usando CIO/Mock).
+  - iOS: `Darwin`.
+- **DTO Principales:** `PaginaResponse`, `ProductoDto`.
+- **Manejo de Errores:** Se capturan excepciones de red (`ConnectException`, `HttpRequestTimeoutException`) devolviendo estados controlados en el repositorio en lugar de detener la aplicación.
 
-*Nota:* PharmaSoft con H2 corresponde a una integración adicional que no forma parte de la API principal utilizada para esta evidencia.
+### Instrucciones para ejecutar
+- **Backend:** En la carpeta `pharmaSoft`, ejecuta `.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=h2`.
+- **Android:** En la carpeta `PharmaMobile`, ejecuta `.\gradlew.bat :androidApp:assembleDebug` o lanza el proyecto desde Android Studio en un emulador.
+- **Pruebas:** Ejecuta `.\gradlew.bat :shared:check` para correr los test unitarios de conexión mockeada.

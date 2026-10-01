@@ -27,7 +27,6 @@ class ProductoRepositorioKtorTest {
                 })
             }
             defaultRequest {
-                url("https://api.escuelajs.co/api/v1/")
                 contentType(ContentType.Application.Json)
             }
             engine {
@@ -39,26 +38,27 @@ class ProductoRepositorioKtorTest {
     @Test
     fun debe_mapear_correctamente_lista_de_DTO_a_Dominio_con_HTTP_200() = runTest {
         val mockEngine = mockHttpClient { request ->
-            assertEquals("https://api.escuelajs.co/api/v1/products?limit=10", request.url.toString())
+            assertTrue(request.url.toString().contains("productos?pagina=0&tamanio=20"))
             respond(
                 content = """
-                    [
-                      {
-                        "id": 2,
-                        "title": "Classic Red Pullover Hoodie",
-                        "price": 10.0,
-                        "description": "Elevate your casual wardrobe",
-                        "category": {
+                    {
+                      "contenido": [
+                        {
                           "id": 1,
-                          "name": "Clothes"
-                        },
-                        "images": [
-                          "https://i.imgur.com/1twoaDy.jpeg"
-                        ],
-                        "creationAt": "2026-09-30T09:27:26.000Z",
-                        "updatedAt": "2026-09-30T09:27:26.000Z"
-                      }
-                    ]
+                          "nombre": "Paracetamol 500mg",
+                          "precio": 5.5,
+                          "stock": 100,
+                          "estado": true,
+                          "categoriaId": 1,
+                          "categoriaNombre": "Analgésicos"
+                        }
+                      ],
+                      "pagina": 0,
+                      "tamanio": 20,
+                      "totalElementos": 1,
+                      "totalPaginas": 1,
+                      "ultima": true
+                    }
                 """.trimIndent(),
                 status = HttpStatusCode.OK,
                 headers = headersOf(HttpHeaders.ContentType, "application/json")
@@ -69,19 +69,27 @@ class ProductoRepositorioKtorTest {
 
         assertEquals(1, productos.size)
         val producto = productos.first()
-        assertEquals(2L, producto.id)
-        assertEquals("Classic Red Pullover Hoodie", producto.nombre)
-        assertEquals(10.0, producto.precio)
-        assertEquals("Elevate your casual wardrobe", producto.descripcion)
-        assertEquals("Clothes", producto.categoria)
-        assertEquals("https://i.imgur.com/1twoaDy.jpeg", producto.imagen)
+        assertEquals(1L, producto.id)
+        assertEquals("Paracetamol 500mg", producto.nombre)
+        assertEquals(5.5, producto.precio)
+        assertEquals("", producto.descripcion) // Not provided by PharmaSoft
+        assertEquals("Analgésicos", producto.categoria)
     }
 
     @Test
     fun debe_manejar_lista_vacia() = runTest {
         val mockEngine = mockHttpClient {
             respond(
-                content = "[]",
+                content = """
+                    {
+                      "contenido": [],
+                      "pagina": 0,
+                      "tamanio": 20,
+                      "totalElementos": 0,
+                      "totalPaginas": 0,
+                      "ultima": true
+                    }
+                """.trimIndent(),
                 status = HttpStatusCode.OK,
                 headers = headersOf(HttpHeaders.ContentType, "application/json")
             )
@@ -97,14 +105,23 @@ class ProductoRepositorioKtorTest {
         val mockEngine = mockHttpClient {
             respond(
                 content = """
-                    [
-                      {
-                        "id": 3,
-                        "title": "Shirt",
-                        "price": 15.0
-                      }
-                    ]
-                """.trimIndent(), // Missing description, category, images
+                    {
+                      "contenido": [
+                        {
+                          "id": 3,
+                          "nombre": "Ibuprofeno",
+                          "precio": 15.0,
+                          "stock": 50,
+                          "estado": true
+                        }
+                      ],
+                      "pagina": 0,
+                      "tamanio": 20,
+                      "totalElementos": 1,
+                      "totalPaginas": 1,
+                      "ultima": true
+                    }
+                """.trimIndent(), // Missing category fields
                 status = HttpStatusCode.OK,
                 headers = headersOf(HttpHeaders.ContentType, "application/json")
             )
@@ -114,9 +131,7 @@ class ProductoRepositorioKtorTest {
 
         assertEquals(1, productos.size)
         val producto = productos.first()
-        assertEquals("", producto.descripcion)
         assertEquals("", producto.categoria)
-        assertEquals("", producto.imagen)
     }
 
     @Test

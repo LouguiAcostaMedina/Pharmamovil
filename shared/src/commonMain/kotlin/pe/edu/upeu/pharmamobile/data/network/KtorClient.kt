@@ -34,7 +34,6 @@ val ktorHttpClient = httpClient {
     }
     
     defaultRequest {
-        url("https://api.escuelajs.co/api/v1/")
         contentType(ContentType.Application.Json)
     }
 }

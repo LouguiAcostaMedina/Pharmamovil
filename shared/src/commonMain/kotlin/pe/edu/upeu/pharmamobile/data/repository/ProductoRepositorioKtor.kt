@@ -12,22 +12,31 @@ class ProductoRepositorioKtor(private val client: HttpClient) : ProductoReposito
         return p.copy(id = 999)
     }
 
+    private val baseUrl = if (pe.edu.upeu.pharmamobile.getPlatform().name.contains("Android")) {
+        "http://10.0.2.2:8080/api/v1"
+    } else {
+        "http://localhost:8080/api/v1"
+    }
+
     override suspend fun listar(): List<Producto> {
         return try {
-            val response: List<ProductoDto> = client.get("products") {
+            val response: pe.edu.upeu.pharmamobile.data.model.PaginaResponse<ProductoDto> = client.get("$baseUrl/productos") {
                 url {
-                    parameters.append("limit", "10")
+                    parameters.append("pagina", "0")
+                    parameters.append("tamanio", "20")
+                    parameters.append("ordenarPor", "id")
+                    parameters.append("direccion", "asc")
                 }
             }.body()
 
-            response.map { dto ->
+            response.contenido.map { dto ->
                 Producto(
-                    id = dto.id.toLong(),
-                    nombre = dto.title,
-                    precio = dto.price,
-                    descripcion = dto.description,
-                    imagen = dto.images.firstOrNull() ?: "",
-                    categoria = dto.category?.name ?: ""
+                    id = dto.id,
+                    nombre = dto.nombre,
+                    precio = dto.precio,
+                    descripcion = "", // Not available in PharmaSoft currently
+                    imagen = "", // Not available
+                    categoria = dto.categoriaNombre ?: ""
                 )
             }
         } catch (e: Exception) {
