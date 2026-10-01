@@ -16,11 +16,13 @@ class ProductoRepositorioKtor(private val api: ProductoApi) : ProductoRepository
     override suspend fun listar(): List<Producto> {
         return safeApiCall {
             val response = api.listar()
-            response.contenido.map { dto ->
+            response.contenido.filter { it.estado }.map { dto ->
                 Producto(
                     id = dto.id,
                     nombre = dto.nombre,
                     precio = dto.precio,
+                    stock = dto.stock,
+                    activo = dto.estado,
                     descripcion = "",
                     imagen = "",
                     categoria = dto.categoriaNombre ?: ""
@@ -36,6 +38,8 @@ class ProductoRepositorioKtor(private val api: ProductoApi) : ProductoRepository
                 id = dto.id,
                 nombre = dto.nombre,
                 precio = dto.precio,
+                stock = dto.stock,
+                activo = dto.estado,
                 descripcion = "",
                 imagen = "",
                 categoria = dto.categoriaNombre ?: ""
