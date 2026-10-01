@@ -29,7 +29,7 @@ class ProductoRepositorioKtor(private val api: ProductoApi) : ProductoRepository
         }
     }
 
-    suspend fun obtener(id: Long): Producto {
+    override suspend fun obtener(id: Long): Producto {
         return safeApiCall {
             val dto = api.obtener(id)
             Producto(
@@ -57,7 +57,7 @@ class ProductoRepositorioKtor(private val api: ProductoApi) : ProductoRepository
         }
     }
 
-    suspend fun actualizar(p: Producto): Producto {
+    override suspend fun actualizar(p: Producto): Producto {
         return safeApiCall {
             val request = ProductoRequestDto(
                 nombre = p.nombre,
@@ -71,7 +71,7 @@ class ProductoRepositorioKtor(private val api: ProductoApi) : ProductoRepository
         }
     }
 
-    suspend fun eliminar(id: Long) {
+    override suspend fun eliminar(id: Long) {
         safeApiCall {
             api.eliminar(id)
         }
