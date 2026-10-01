@@ -30,8 +30,10 @@ class ProductoViewModel(
                 val lista = repository.listar()
                 if (lista.isEmpty()) {
                     _uiState.update { it.copy(fase = ProductoUiState.Fase.SinProductos) }
+                    println("=== LOG: estado final enviado a la UI: SinProductos ===")
                 } else {
                     _uiState.update { it.copy(fase = ProductoUiState.Fase.ConProductos(lista)) }
+                    println("=== LOG: estado final enviado a la UI: ConProductos (${lista.size}) ===")
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(fase = ProductoUiState.Fase.Error(e.message ?: "Error desconocido")) }

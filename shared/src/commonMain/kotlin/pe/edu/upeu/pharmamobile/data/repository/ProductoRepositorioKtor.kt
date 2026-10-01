@@ -20,16 +20,23 @@ class ProductoRepositorioKtor(private val client: HttpClient) : ProductoReposito
 
     override suspend fun listar(): List<Producto> {
         return try {
-            val response: pe.edu.upeu.pharmamobile.data.model.PaginaResponse<ProductoDto> = client.get("$baseUrl/productos") {
+            val url = "$baseUrl/productos?pagina=0&tamanio=20&ordenarPor=id&direccion=asc"
+            println("=== LOG: URL solicitada: $url ===")
+            
+            val httpResponse = client.get("$baseUrl/productos") {
                 url {
                     parameters.append("pagina", "0")
                     parameters.append("tamanio", "20")
                     parameters.append("ordenarPor", "id")
                     parameters.append("direccion", "asc")
                 }
-            }.body()
+            }
+            println("=== LOG: status HTTP: ${httpResponse.status} ===")
+            
+            val response: pe.edu.upeu.pharmamobile.data.model.PaginaResponse<ProductoDto> = httpResponse.body()
+            println("=== LOG: cantidad de elementos recibidos: ${response.contenido.size} ===")
 
-            response.contenido.map { dto ->
+            val dominioList = response.contenido.map { dto ->
                 Producto(
                     id = dto.id,
                     nombre = dto.nombre,
@@ -39,7 +46,10 @@ class ProductoRepositorioKtor(private val client: HttpClient) : ProductoReposito
                     categoria = dto.categoriaNombre ?: ""
                 )
             }
+            println("=== LOG: cantidad mapeada al dominio: ${dominioList.size} ===")
+            dominioList
         } catch (e: Exception) {
+            println("=== LOG: Exception capturada: ${e.message} ===")
             e.printStackTrace()
             emptyList()
         }

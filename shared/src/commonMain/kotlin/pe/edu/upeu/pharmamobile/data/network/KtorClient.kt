@@ -13,7 +13,7 @@ expect fun httpClient(config: HttpClientConfig<*>.() -> Unit = {}): HttpClient
 
 val ktorHttpClient = httpClient {
     expectSuccess = true
-    
+
     install(ContentNegotiation) {
         json(Json {
             prettyPrint = true
@@ -21,18 +21,18 @@ val ktorHttpClient = httpClient {
             ignoreUnknownKeys = true
         })
     }
-    
+
     install(Logging) {
         logger = Logger.DEFAULT
         level = LogLevel.ALL
     }
-    
+
     install(HttpTimeout) {
         requestTimeoutMillis = 15000L
         connectTimeoutMillis = 15000L
         socketTimeoutMillis = 15000L
     }
-    
+
     defaultRequest {
         contentType(ContentType.Application.Json)
     }

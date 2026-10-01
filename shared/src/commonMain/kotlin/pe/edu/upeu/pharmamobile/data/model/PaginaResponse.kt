@@ -4,10 +4,10 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class PaginaResponse<T>(
-    val contenido: List<T>,
-    val pagina: Int,
-    val tamanio: Int,
-    val totalElementos: Long,
-    val totalPaginas: Int,
-    val ultima: Boolean
+    val contenido: List<T> = emptyList(),
+    val pagina: Int = 0,
+    val tamanio: Int = 0,
+    val totalElementos: Long = 0,
+    val totalPaginas: Int = 0,
+    val ultima: Boolean = true
 )
