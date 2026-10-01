@@ -51,7 +51,7 @@ fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
                 MensajeFase("No hay productos registrados aún. ¡Registra el primero!")
             }
             is ProductoUiState.Fase.ConProductos -> {
-                ListaProductos(fase.lista)
+                ListaProductos(fase.lista, viewModel, state)
             }
             is ProductoUiState.Fase.Error -> {
                 MensajeFase("Ocurrió un error: ${fase.mensaje}", esError = true)
@@ -62,6 +62,9 @@ fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
 
 @Composable
 fun FormularioProducto(state: ProductoUiState, viewModel: ProductoViewModel) {
+    val enCurso = state.operacion is ProductoUiState.Operacion.EnCurso
+    val editando = state.productoEditandoId != null
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -73,7 +76,7 @@ fun FormularioProducto(state: ProductoUiState, viewModel: ProductoViewModel) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Registrar Nuevo Producto",
+                text = if (editando) "Actualizar Producto" else "Registrar Nuevo Producto",
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
@@ -83,41 +86,73 @@ fun FormularioProducto(state: ProductoUiState, viewModel: ProductoViewModel) {
                 value = state.nombre,
                 onValueChange = { viewModel.onNombreChange(it) },
                 label = { Text("Nombre del Producto") },
+                isError = state.nombreError != null,
                 singleLine = true,
+                enabled = !enCurso,
                 modifier = Modifier.fillMaxWidth()
             )
+            if (state.nombreError != null) {
+                Text(text = state.nombreError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
 
             OutlinedTextField(
                 value = state.precio,
                 onValueChange = { viewModel.onPrecioChange(it) },
                 label = { Text("Precio Unitario (S/)") },
+                isError = state.precioError != null,
                 singleLine = true,
+                enabled = !enCurso,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth()
             )
+            if (state.precioError != null) {
+                Text(text = state.precioError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
 
             OutlinedTextField(
                 value = state.stock,
                 onValueChange = { viewModel.onStockChange(it) },
                 label = { Text("Stock Disponible") },
+                isError = state.stockError != null,
                 singleLine = true,
+                enabled = !enCurso,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
+            if (state.stockError != null) {
+                Text(text = state.stockError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
 
-            Button(
-                onClick = { viewModel.registrarProducto() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-                    .height(50.dp),
-                shape = RoundedCornerShape(12.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "Registrar Producto",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                if (editando) {
+                    OutlinedButton(
+                        onClick = { viewModel.onCancelarEdicion() },
+                        enabled = !enCurso,
+                        modifier = Modifier.weight(1f).height(50.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Cancelar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Button(
+                    onClick = { viewModel.registrarProducto() },
+                    enabled = !enCurso,
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (enCurso && (state.operacion as ProductoUiState.Operacion.EnCurso).tipo != ProductoUiState.Operacion.Tipo.Eliminar) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                    } else {
+                        Text(
+                            text = if (editando) "Actualizar" else "Registrar",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
         }
     }
@@ -177,7 +212,9 @@ fun MensajeFase(mensaje: String, esError: Boolean = false) {
 }
 
 @Composable
-fun ListaProductos(productos: List<Producto>) {
+fun ListaProductos(productos: List<Producto>, viewModel: ProductoViewModel, state: ProductoUiState) {
+    val enCurso = state.operacion is ProductoUiState.Operacion.EnCurso
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -196,55 +233,76 @@ fun ListaProductos(productos: List<Producto>) {
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = producto.nombre,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "ID: ${producto.id}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "S/ ${producto.precio}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        
-                        val requiereRep = producto.requiereReposicion
-                        val stockColor = if (requiereRep) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
-
-                        Surface(
-                            color = stockColor.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(8.dp)
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
-                                text = "Stock: ${producto.stock}",
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.bodySmall,
+                                text = producto.nombre,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = stockColor
+                                color = MaterialTheme.colorScheme.onSurface
                             )
+                            Text(
+                                text = "ID: ${producto.id}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Column(
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "S/ ${producto.precio}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            
+                            val requiereRep = producto.requiereReposicion
+                            val stockColor = if (requiereRep) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
+
+                            Surface(
+                                color = stockColor.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "Stock: ${producto.stock}",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = stockColor
+                                )
+                            }
+                        }
+                    }
+                    Divider()
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = { viewModel.onEditarProducto(producto) },
+                            enabled = !enCurso
+                        ) {
+                            Text("Editar")
+                        }
+                        TextButton(
+                            onClick = { viewModel.eliminarProducto(producto.id) },
+                            enabled = !enCurso,
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Text("Eliminar")
                         }
                     }
                 }

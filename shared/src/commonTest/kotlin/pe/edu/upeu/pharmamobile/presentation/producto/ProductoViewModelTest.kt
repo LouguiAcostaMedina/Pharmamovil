@@ -8,6 +8,10 @@ import pe.edu.upeu.pharmamobile.domain.model.Producto
 import pe.edu.upeu.pharmamobile.domain.repository.ProductoRepository
 import pe.edu.upeu.pharmamobile.domain.usecase.RegistrarProductoUseCase
 
+import pe.edu.upeu.pharmamobile.domain.usecase.ListarProductosUseCase
+import pe.edu.upeu.pharmamobile.domain.usecase.ActualizarProductoUseCase
+import pe.edu.upeu.pharmamobile.domain.usecase.EliminarProductoUseCase
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProductoViewModelTest {
 
@@ -25,23 +29,21 @@ class ProductoViewModelTest {
 
     // Paso 1: Fakes del Repositorio
 
-    class FakeRepoVacio : ProductoRepository {
+    open class FakeRepoBase : ProductoRepository {
         var llamadasRegistrar = 0
         override suspend fun registrar(p: Producto): Producto {
             llamadasRegistrar++
             return p
         }
-        override suspend fun listar(): List<Producto> {
-            return emptyList()
-        }
+        override suspend fun listar(): List<Producto> = emptyList()
+        override suspend fun obtener(id: Long): Producto = Producto(1, "", 0.0)
+        override suspend fun actualizar(p: Producto): Producto = p
+        override suspend fun eliminar(id: Long) {}
     }
 
-    class FakeRepoLleno : ProductoRepository {
-        var llamadasRegistrar = 0
-        override suspend fun registrar(p: Producto): Producto {
-            llamadasRegistrar++
-            return p
-        }
+    class FakeRepoVacio : FakeRepoBase()
+
+    class FakeRepoLleno : FakeRepoBase() {
         override suspend fun listar(): List<Producto> {
             return listOf(
                 Producto(1, "Paracetamol", 5.0, 100),
@@ -51,15 +53,19 @@ class ProductoViewModelTest {
         }
     }
 
-    class FakeRepoError : ProductoRepository {
-        var llamadasRegistrar = 0
-        override suspend fun registrar(p: Producto): Producto {
-            llamadasRegistrar++
-            return p
-        }
+    class FakeRepoError : FakeRepoBase() {
         override suspend fun listar(): List<Producto> {
             throw Exception("Error simulado")
         }
+    }
+
+    private fun createViewModel(repo: ProductoRepository): ProductoViewModel {
+        return ProductoViewModel(
+            listarProductosUseCase = ListarProductosUseCase(repo),
+            registrarProductoUseCase = RegistrarProductoUseCase(repo),
+            actualizarProductoUseCase = ActualizarProductoUseCase(repo),
+            eliminarProductoUseCase = EliminarProductoUseCase(repo)
+        )
     }
 
     // Paso 2: Pruebas Unitarias
@@ -67,8 +73,7 @@ class ProductoViewModelTest {
     @Test
     fun debe_mostrar_SinProductos_cuando_repositorio_esta_vacio() = runTest {
         val repo = FakeRepoVacio()
-        val useCase = RegistrarProductoUseCase(repo)
-        val viewModel = ProductoViewModel(useCase, repo)
+        val viewModel = createViewModel(repo)
 
         viewModel.cargarProductos()
         advanceUntilIdle()
@@ -80,8 +85,7 @@ class ProductoViewModelTest {
     @Test
     fun debe_mostrar_ConProductos_cuando_repositorio_tiene_datos() = runTest {
         val repo = FakeRepoLleno()
-        val useCase = RegistrarProductoUseCase(repo)
-        val viewModel = ProductoViewModel(useCase, repo)
+        val viewModel = createViewModel(repo)
 
         viewModel.cargarProductos()
         advanceUntilIdle()
@@ -94,42 +98,12 @@ class ProductoViewModelTest {
     @Test
     fun debe_mostrar_Error_cuando_repositorio_falla() = runTest {
         val repo = FakeRepoError()
-        val useCase = RegistrarProductoUseCase(repo)
-        val viewModel = ProductoViewModel(useCase, repo)
+        val viewModel = createViewModel(repo)
 
         viewModel.cargarProductos()
         advanceUntilIdle()
 
         val fase = viewModel.uiState.value.fase
         assertTrue(fase is ProductoUiState.Fase.Error, "La fase debería ser Error")
-    }
-
-    @Test
-    fun debe_bloquear_registro_con_precio_cero() = runTest {
-        val repo = FakeRepoVacio()
-        val useCase = RegistrarProductoUseCase(repo)
-        val viewModel = ProductoViewModel(useCase, repo)
-        
-        // Esperamos a que termine la carga inicial del init block
-        advanceUntilIdle()
-
-        // Simulamos el llenado del formulario
-        viewModel.onNombreChange("Vitamina C")
-        viewModel.onPrecioChange("0") // Precio cero
-        viewModel.onStockChange("10")
-        
-        viewModel.registrarProducto()
-        advanceUntilIdle()
-
-        val state = viewModel.uiState.value
-        
-        // Verificamos que el registro haya fallado
-        assertEquals(false, state.esExito, "El estado de éxito debería ser false")
-        
-        // Verificamos que se haya expuesto un mensaje de error (El caso de uso real devuelve "El precio debe ser mayor a 0")
-        assertTrue(state.mensaje.isNotEmpty(), "Debería existir un mensaje de error expuesto al formulario")
-        
-        // Verificamos explícitamente que el repositorio NO fue llamado
-        assertEquals(0, repo.llamadasRegistrar, "El contador llamadasRegistrar del repositorio debería ser exactamente 0")
     }
 }

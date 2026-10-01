@@ -9,11 +9,17 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import pe.edu.upeu.pharmamobile.domain.model.Producto
 import pe.edu.upeu.pharmamobile.domain.repository.ProductoRepository
+import pe.edu.upeu.pharmamobile.domain.usecase.ListarProductosUseCase
 import pe.edu.upeu.pharmamobile.domain.usecase.RegistrarProductoUseCase
+import pe.edu.upeu.pharmamobile.domain.usecase.ActualizarProductoUseCase
+import pe.edu.upeu.pharmamobile.domain.usecase.EliminarProductoUseCase
+import pe.edu.upeu.pharmamobile.domain.model.ErrorApi
 
 class ProductoViewModel(
+    private val listarProductosUseCase: ListarProductosUseCase,
     private val registrarProductoUseCase: RegistrarProductoUseCase,
-    private val repository: ProductoRepository
+    private val actualizarProductoUseCase: ActualizarProductoUseCase,
+    private val eliminarProductoUseCase: EliminarProductoUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProductoUiState())
@@ -27,14 +33,14 @@ class ProductoViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(fase = ProductoUiState.Fase.Cargando) }
             try {
-                val lista = repository.listar()
+                val lista = listarProductosUseCase()
                 if (lista.isEmpty()) {
                     _uiState.update { it.copy(fase = ProductoUiState.Fase.SinProductos) }
-                    println("=== LOG: estado final enviado a la UI: SinProductos ===")
                 } else {
                     _uiState.update { it.copy(fase = ProductoUiState.Fase.ConProductos(lista)) }
-                    println("=== LOG: estado final enviado a la UI: ConProductos (${lista.size}) ===")
                 }
+            } catch (e: ErrorApi) {
+                _uiState.update { it.copy(fase = ProductoUiState.Fase.Error(e.message)) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(fase = ProductoUiState.Fase.Error(e.message ?: "Error desconocido")) }
             }
@@ -54,40 +60,146 @@ class ProductoViewModel(
     }
 
     fun registrarProducto() {
-        _uiState.update { 
-            it.copy(nombreError = null, precioError = null, stockError = null, mensaje = "", esExito = false)
+        val operacion = _uiState.value.operacion
+        if (operacion is ProductoUiState.Operacion.EnCurso) return
+        
+        val id = _uiState.value.productoEditandoId
+        if (id != null) {
+            actualizarProducto(id)
+            return
         }
-        val currentState = _uiState.value
+        
+        ejecutarOperacion(ProductoUiState.Operacion.Tipo.Crear) {
 
-        viewModelScope.launch {
+            val currentState = _uiState.value
             val p = Producto(
+                id = 0,
                 nombre = currentState.nombre,
                 precio = currentState.precio.toDoubleOrNull() ?: 0.0,
-                stock = currentState.stock.toIntOrNull() ?: 0
+                stock = currentState.stock.toIntOrNull() ?: 0,
+                descripcion = "",
+                imagen = "",
+                categoria = ""
             )
+            registrarProductoUseCase(p)
+            _uiState.update {
+                it.copy(
+                    nombre = "",
+                    precio = "",
+                    stock = "",
+                    mensaje = "Producto registrado exitosamente.",
+                    esExito = true
+                )
+            }
+            cargarProductos()
+        }
+    }
 
-            val result = registrarProductoUseCase(p)
-            result.fold(
-                onSuccess = { producto ->
-                    _uiState.update {
-                        it.copy(
-                            nombre = "",
-                            precio = "",
-                            stock = "",
-                            mensaje = "Producto registrado exitosamente.",
-                            esExito = true
-                        )
-                    }
-                    cargarProductos()
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            mensaje = error.message ?: "Error al registrar",
-                            esExito = false
-                        )
-                    }
+    fun actualizarProducto(id: Long) {
+        ejecutarOperacion(ProductoUiState.Operacion.Tipo.Actualizar) {
+            val currentState = _uiState.value
+            val p = Producto(
+                id = id,
+                nombre = currentState.nombre,
+                precio = currentState.precio.toDoubleOrNull() ?: 0.0,
+                stock = currentState.stock.toIntOrNull() ?: 0,
+                descripcion = "",
+                imagen = "",
+                categoria = ""
+            )
+            actualizarProductoUseCase(p)
+            _uiState.update {
+                it.copy(
+                    nombre = "",
+                    precio = "",
+                    stock = "",
+                    mensaje = "Producto actualizado exitosamente.",
+                    esExito = true
+                )
+            }
+            cargarProductos()
+        }
+    }
+
+    fun eliminarProducto(id: Long) {
+        ejecutarOperacion(ProductoUiState.Operacion.Tipo.Eliminar) {
+            eliminarProductoUseCase(id)
+            _uiState.update {
+                it.copy(
+                    mensaje = "Producto eliminado exitosamente.",
+                    esExito = true
+                )
+            }
+            cargarProductos()
+        }
+    }
+
+    private fun ejecutarOperacion(
+        tipo: ProductoUiState.Operacion.Tipo,
+        block: suspend () -> Unit
+    ) {
+        _uiState.update { 
+            it.copy(
+                nombreError = null, precioError = null, stockError = null, 
+                mensaje = "", esExito = false, 
+                operacion = ProductoUiState.Operacion.EnCurso(tipo)
+            )
+        }
+        viewModelScope.launch {
+            try {
+                block()
+                _uiState.update { it.copy(operacion = ProductoUiState.Operacion.Inactiva) }
+            } catch (e: ErrorApi.Validacion) {
+                _uiState.update {
+                    it.copy(
+                        nombreError = e.validationErrors["nombre"],
+                        precioError = e.validationErrors["precio"],
+                        stockError = e.validationErrors["stock"],
+                        operacion = ProductoUiState.Operacion.Fallida(tipo, e.message)
+                    )
                 }
+            } catch (e: ErrorApi) {
+                _uiState.update {
+                    it.copy(
+                        operacion = ProductoUiState.Operacion.Fallida(tipo, e.message)
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        operacion = ProductoUiState.Operacion.Fallida(tipo, e.message ?: "Error desconocido")
+                    )
+                }
+            }
+        }
+    }
+
+    fun onEditarProducto(producto: Producto) {
+        _uiState.update {
+            it.copy(
+                productoEditandoId = producto.id,
+                nombre = producto.nombre,
+                precio = producto.precio.toString(),
+                stock = producto.stock.toString(),
+                nombreError = null,
+                precioError = null,
+                stockError = null,
+                mensaje = ""
+            )
+        }
+    }
+
+    fun onCancelarEdicion() {
+        _uiState.update {
+            it.copy(
+                productoEditandoId = null,
+                nombre = "",
+                precio = "",
+                stock = "",
+                nombreError = null,
+                precioError = null,
+                stockError = null,
+                mensaje = ""
             )
         }
     }
