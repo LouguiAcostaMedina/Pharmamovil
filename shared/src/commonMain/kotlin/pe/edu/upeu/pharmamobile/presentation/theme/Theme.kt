@@ -60,6 +60,7 @@ fun PharmaMobilTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
+        typography = PharmaTypography,
         content = content
     )
 }
