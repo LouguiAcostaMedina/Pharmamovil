@@ -77,23 +77,44 @@ fun App() {
 
                                 Spacer(modifier = Modifier.weight(1f))
                                 HorizontalDivider()
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = if (isDarkMode) "Modo Oscuro" else "Modo Claro",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    Switch(
-                                        checked = isDarkMode,
-                                        onCheckedChange = { isDarkMode = it }
-                                    )
-                                }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(50),
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.height(40.dp)
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                TextButton(
+                                                    onClick = { isDarkMode = false },
+                                                    modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+                                                    colors = ButtonDefaults.textButtonColors(
+                                                        containerColor = if (!isDarkMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                                                        contentColor = if (!isDarkMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                ) {
+                                                    Icon(Icons.Default.LightMode, contentDescription = "Claro", modifier = Modifier.size(18.dp))
+                                                    Spacer(Modifier.width(4.dp))
+                                                    Text("Claro", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                                TextButton(
+                                                    onClick = { isDarkMode = true },
+                                                    modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+                                                    colors = ButtonDefaults.textButtonColors(
+                                                        containerColor = if (isDarkMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                                                        contentColor = if (isDarkMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                ) {
+                                                    Icon(Icons.Default.DarkMode, contentDescription = "Oscuro", modifier = Modifier.size(18.dp))
+                                                    Spacer(Modifier.width(4.dp))
+                                                    Text("Oscuro", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    }
                             }
                         }
                     ) {
@@ -121,20 +142,33 @@ fun App() {
                                         }
                                     },
                                     actions = {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(end = 12.dp)
+                                        Surface(
+                                            shape = RoundedCornerShape(50),
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.padding(end = 16.dp).height(36.dp)
                                         ) {
-                                            Icon(
-                                                imageVector = if (isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
-                                                contentDescription = "Alternar Tema",
-                                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                modifier = Modifier.padding(end = 6.dp)
-                                            )
-                                            Switch(
-                                                checked = isDarkMode,
-                                                onCheckedChange = { isDarkMode = it }
-                                            )
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                IconButton(
+                                                    onClick = { isDarkMode = false },
+                                                    modifier = Modifier.size(36.dp),
+                                                    colors = IconButtonDefaults.iconButtonColors(
+                                                        containerColor = if (!isDarkMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                                                        contentColor = if (!isDarkMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                ) {
+                                                    Icon(Icons.Default.LightMode, contentDescription = "Claro", modifier = Modifier.size(20.dp))
+                                                }
+                                                IconButton(
+                                                    onClick = { isDarkMode = true },
+                                                    modifier = Modifier.size(36.dp),
+                                                    colors = IconButtonDefaults.iconButtonColors(
+                                                        containerColor = if (isDarkMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                                                        contentColor = if (isDarkMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                ) {
+                                                    Icon(Icons.Default.DarkMode, contentDescription = "Oscuro", modifier = Modifier.size(20.dp))
+                                                }
+                                            }
                                         }
                                     },
                                     colors = TopAppBarDefaults.topAppBarColors(
@@ -217,20 +251,33 @@ fun App() {
                                         )
                                     },
                                     actions = {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(end = 16.dp)
+                                        Surface(
+                                            shape = RoundedCornerShape(50),
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.padding(end = 16.dp).height(36.dp)
                                         ) {
-                                            Text(
-                                                text = if (isDarkMode) "Modo Oscuro" else "Modo Claro",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                modifier = Modifier.padding(end = 8.dp)
-                                            )
-                                            Switch(
-                                                checked = isDarkMode,
-                                                onCheckedChange = { isDarkMode = it }
-                                            )
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                IconButton(
+                                                    onClick = { isDarkMode = false },
+                                                    modifier = Modifier.size(36.dp),
+                                                    colors = IconButtonDefaults.iconButtonColors(
+                                                        containerColor = if (!isDarkMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                                                        contentColor = if (!isDarkMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                ) {
+                                                    Icon(Icons.Default.LightMode, contentDescription = "Claro", modifier = Modifier.size(20.dp))
+                                                }
+                                                IconButton(
+                                                    onClick = { isDarkMode = true },
+                                                    modifier = Modifier.size(36.dp),
+                                                    colors = IconButtonDefaults.iconButtonColors(
+                                                        containerColor = if (isDarkMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                                                        contentColor = if (isDarkMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                ) {
+                                                    Icon(Icons.Default.DarkMode, contentDescription = "Oscuro", modifier = Modifier.size(20.dp))
+                                                }
+                                            }
                                         }
                                     },
                                     colors = TopAppBarDefaults.topAppBarColors(
