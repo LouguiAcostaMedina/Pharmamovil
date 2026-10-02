@@ -5,14 +5,19 @@ import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.KoinAppDeclaration
 import org.koin.dsl.module
-import pe.edu.upeu.pharmamobile.data.repository.ProductoRepositorioEnMemoria
+import pe.edu.upeu.pharmamobile.data.repository.ProductoRepositorioKtor
 import pe.edu.upeu.pharmamobile.domain.repository.ProductoRepository
 import pe.edu.upeu.pharmamobile.domain.usecase.RegistrarProductoUseCase
 import pe.edu.upeu.pharmamobile.presentation.producto.ProductoViewModel
 
 val appModule = module {
-    single<ProductoRepository> { ProductoRepositorioEnMemoria() }
-    factory { RegistrarProductoUseCase(get()) }
+    single { pe.edu.upeu.pharmamobile.data.network.ktorHttpClient }
+    single { pe.edu.upeu.pharmamobile.data.network.ProductoApi(get()) }
+    single<ProductoRepository> { ProductoRepositorioKtor(get()) }
+    factory { pe.edu.upeu.pharmamobile.domain.usecase.ListarProductosUseCase(get()) }
+    factory { pe.edu.upeu.pharmamobile.domain.usecase.RegistrarProductoUseCase(get()) }
+    factory { pe.edu.upeu.pharmamobile.domain.usecase.ActualizarProductoUseCase(get()) }
+    factory { pe.edu.upeu.pharmamobile.domain.usecase.EliminarProductoUseCase(get()) }
     viewModelOf(::ProductoViewModel)
 }
 
