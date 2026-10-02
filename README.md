@@ -58,3 +58,18 @@ Esta sección detalla la configuración e integración del cliente Ktor con el b
 - **Backend:** En la carpeta `pharmaSoft`, ejecuta `.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=h2`.
 - **Android:** En la carpeta `PharmaMobile`, ejecuta `.\gradlew.bat :androidApp:assembleDebug` o lanza el proyecto desde Android Studio en un emulador.
 - **Pruebas:** Ejecuta `.\gradlew.bat :shared:check` para correr los test unitarios de conexión mockeada.
+
+## Manejo de errores
+- Implementación de `ErrorApi` mediante sealed class para errores tipificados.
+- Intercepción de excepciones HTTP (400, 404, 409) con logs y parseo de `ErrorResponseDto` a `ErrorApi.Validacion`.
+- Manejo seguro de timeout, desconexión (`IOException`) y relanzamiento de `CancellationException`.
+
+## Diseño y experiencia de usuario
+- **Material 3:** Rediseño completo del sistema de interfaz basándose en los lineamientos Material Design 3.
+- **Temas claro/oscuro:** Esquemas de color personalizados (Pharma Teal) con adaptación cuidada para modo oscuro mediante selector de íconos interactivo.
+- **Componentes reutilizables:** Creación y centralización de tipografía estandarizada y cards estructurados (ej. TarjetaProducto).
+- **Navegación:** Layout responsivo, utilizando NavigationRail en Desktop y Drawer en móviles.
+- **Formularios disponibles:**
+  - **Productos:** CRUD Completo implementado.
+  - **Clientes:** UI solamente. Se han maquetado los campos visualmente sin conexión a lógica.
+  - **Pedidos:** UI solamente. Interfaz creada para gestionar las ventas sin integración a backend.
