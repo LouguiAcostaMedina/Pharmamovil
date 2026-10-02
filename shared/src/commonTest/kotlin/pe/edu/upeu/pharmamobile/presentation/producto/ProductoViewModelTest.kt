@@ -59,6 +59,22 @@ class ProductoViewModelTest {
         }
     }
 
+    class FakeRepoValidacion : FakeRepoBase() {
+        override suspend fun registrar(p: Producto): Producto {
+            throw pe.edu.upeu.pharmamobile.domain.model.ErrorApi.Validacion(
+                "Errores de validación",
+                mapOf("nombre" to "El nombre debe tener al menos 3 caracteres", "precio" to "El precio debe ser mayor que cero")
+            )
+        }
+    }
+
+    class FakeRepoEliminar : FakeRepoBase() {
+        var eliminarInvocado = false
+        override suspend fun eliminar(id: Long) {
+            eliminarInvocado = true
+        }
+    }
+
     private fun createViewModel(repo: ProductoRepository): ProductoViewModel {
         return ProductoViewModel(
             listarProductosUseCase = ListarProductosUseCase(repo),
@@ -105,5 +121,42 @@ class ProductoViewModelTest {
 
         val fase = viewModel.uiState.value.fase
         assertTrue(fase is ProductoUiState.Fase.Error, "La fase debería ser Error")
+    }
+
+    @Test
+    fun debe_mostrar_errores_de_validacion_al_registrar_invalido() = runTest {
+        val repo = FakeRepoValidacion()
+        val viewModel = createViewModel(repo)
+
+        viewModel.onNombreChange("Te")
+        viewModel.onPrecioChange("-5.0")
+        
+        viewModel.registrarProducto()
+        advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        val operacion = uiState.operacion
+        
+        assertTrue(operacion is ProductoUiState.Operacion.Fallida, "La operación debería ser Fallida")
+        assertEquals("El nombre debe tener al menos 3 caracteres", uiState.nombreError)
+        assertEquals("El precio debe ser mayor que cero", uiState.precioError)
+    }
+
+    @Test
+    fun debe_cambiar_estados_correctamente_al_eliminar() = runTest {
+        val repo = FakeRepoEliminar()
+        val viewModel = createViewModel(repo)
+
+        viewModel.eliminarProducto(1L)
+        
+        // Antes de que termine la corrutina de cargarProductos o eliminar, 
+        // pero advanceUntilIdle() ejecutará todo.
+        advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        val operacion = uiState.operacion
+        
+        assertTrue(operacion is ProductoUiState.Operacion.Inactiva, "La operación debería ser Inactiva después de terminar")
+        assertTrue(repo.eliminarInvocado, "El repositorio de eliminar debería haber sido invocado")
     }
 }
