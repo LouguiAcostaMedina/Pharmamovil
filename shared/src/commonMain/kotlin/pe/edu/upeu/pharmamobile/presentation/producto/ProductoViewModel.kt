@@ -13,13 +13,16 @@ import pe.edu.upeu.pharmamobile.domain.usecase.ListarProductosUseCase
 import pe.edu.upeu.pharmamobile.domain.usecase.RegistrarProductoUseCase
 import pe.edu.upeu.pharmamobile.domain.usecase.ActualizarProductoUseCase
 import pe.edu.upeu.pharmamobile.domain.usecase.EliminarProductoUseCase
+import pe.edu.upeu.pharmamobile.domain.usecase.ObtenerProductoUseCase
 import pe.edu.upeu.pharmamobile.domain.model.ErrorApi
+import kotlinx.coroutines.CancellationException
 
 class ProductoViewModel(
     private val listarProductosUseCase: ListarProductosUseCase,
     private val registrarProductoUseCase: RegistrarProductoUseCase,
     private val actualizarProductoUseCase: ActualizarProductoUseCase,
-    private val eliminarProductoUseCase: EliminarProductoUseCase
+    private val eliminarProductoUseCase: EliminarProductoUseCase,
+    private val obtenerProductoUseCase: ObtenerProductoUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProductoUiState())
@@ -39,6 +42,29 @@ class ProductoViewModel(
                 } else {
                     _uiState.update { it.copy(fase = ProductoUiState.Fase.ConProductos(lista)) }
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: ErrorApi) {
+                _uiState.update { it.copy(fase = ProductoUiState.Fase.Error(e.message)) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(fase = ProductoUiState.Fase.Error(e.message ?: "Error desconocido")) }
+            }
+        }
+    }
+
+    fun buscarPorId(idStr: String) {
+        val id = idStr.toLongOrNull()
+        if (id == null) {
+            _uiState.update { it.copy(fase = ProductoUiState.Fase.Error("ID inválido")) }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(fase = ProductoUiState.Fase.Cargando) }
+            try {
+                val p = obtenerProductoUseCase(id)
+                _uiState.update { it.copy(fase = ProductoUiState.Fase.ConProductos(listOf(p))) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: ErrorApi) {
                 _uiState.update { it.copy(fase = ProductoUiState.Fase.Error(e.message)) }
             } catch (e: Exception) {
@@ -149,6 +175,8 @@ class ProductoViewModel(
             try {
                 block()
                 _uiState.update { it.copy(operacion = ProductoUiState.Operacion.Inactiva) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: ErrorApi.Validacion) {
                 _uiState.update {
                     it.copy(
@@ -161,13 +189,15 @@ class ProductoViewModel(
             } catch (e: ErrorApi) {
                 _uiState.update {
                     it.copy(
-                        operacion = ProductoUiState.Operacion.Fallida(tipo, e.message)
+                        operacion = ProductoUiState.Operacion.Fallida(tipo, e.message),
+                        mensaje = e.message
                     )
                 }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
-                        operacion = ProductoUiState.Operacion.Fallida(tipo, e.message ?: "Error desconocido")
+                        operacion = ProductoUiState.Operacion.Fallida(tipo, e.message ?: "Error desconocido"),
+                        mensaje = e.message ?: "Error desconocido"
                     )
                 }
             }

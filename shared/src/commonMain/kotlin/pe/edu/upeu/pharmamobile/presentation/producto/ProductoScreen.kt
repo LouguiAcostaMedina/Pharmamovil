@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -71,6 +72,28 @@ fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
             ) {
                 FormularioProducto(state, viewModel)
                 
+                var searchQuery by remember { mutableStateOf("") }
+                
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Buscar producto por ID") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            if (searchQuery.isNotBlank()) {
+                                viewModel.buscarPorId(searchQuery)
+                            } else {
+                                viewModel.cargarProductos()
+                            }
+                        }) {
+                            Icon(Icons.Filled.Search, contentDescription = "Buscar")
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 when (val fase = state.fase) {
                     is ProductoUiState.Fase.Cargando -> {
                         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
@@ -327,6 +350,13 @@ fun TarjetaProducto(producto: Producto, enCurso: Boolean, onEdit: () -> Unit, on
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (producto.categoria.isNotBlank()) {
+                            Text(
+                                text = producto.categoria,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                     Text(
                         text = "S/ ${producto.precio}",
