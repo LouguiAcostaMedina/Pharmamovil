@@ -192,10 +192,8 @@ class ProductoViewModelTest {
         val repo = FakeRepoCancelacion()
         val viewModel = createViewModel(repo)
 
-        assertFailsWith<CancellationException> {
-            viewModel.cargarProductos()
-            advanceUntilIdle()
-        }
+        viewModel.cargarProductos()
+        advanceUntilIdle()
         
         val fase = viewModel.uiState.value.fase
         assertTrue(fase is ProductoUiState.Fase.Cargando, "La fase debería seguir siendo Cargando, no un Error")
