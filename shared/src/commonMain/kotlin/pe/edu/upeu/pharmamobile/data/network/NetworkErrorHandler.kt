@@ -30,7 +30,7 @@ private suspend fun mapExceptionToErrorApi(e: Exception): ErrorApi {
 
             when (response.status.value) {
                 400 -> ErrorApi.Validacion(message, errorDto?.validationErrors ?: emptyMap())
-                404 -> ErrorApi.NoEncontrado(message)
+                404 -> ErrorApi.NoEncontrado("Producto no encontrado")
                 409 -> ErrorApi.Conflicto(message)
                 else -> ErrorApi.Desconocido(message)
             }
@@ -38,8 +38,8 @@ private suspend fun mapExceptionToErrorApi(e: Exception): ErrorApi {
         is ServerResponseException -> { // 5xx errors
             ErrorApi.Servidor("Error interno del servidor")
         }
-        is IOException -> ErrorApi.SinConexion("No hay conexión a internet")
-        is HttpRequestTimeoutException -> ErrorApi.TiempoAgotado("Tiempo de espera agotado")
+        is IOException -> ErrorApi.SinConexion("No se pudo conectar con el servidor")
+        is HttpRequestTimeoutException -> ErrorApi.TiempoAgotado("La solicitud tardó demasiado")
         else -> ErrorApi.Desconocido(e.message ?: "Error desconocido")
     }
 }
