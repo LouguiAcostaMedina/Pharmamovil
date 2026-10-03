@@ -11,6 +11,9 @@ import pe.edu.upeu.pharmamobile.domain.usecase.RegistrarProductoUseCase
 import pe.edu.upeu.pharmamobile.domain.usecase.ListarProductosUseCase
 import pe.edu.upeu.pharmamobile.domain.usecase.ActualizarProductoUseCase
 import pe.edu.upeu.pharmamobile.domain.usecase.EliminarProductoUseCase
+import pe.edu.upeu.pharmamobile.domain.usecase.ObtenerProductoUseCase
+import kotlinx.coroutines.CancellationException
+import pe.edu.upeu.pharmamobile.domain.model.ErrorApi
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProductoViewModelTest {
@@ -80,7 +83,8 @@ class ProductoViewModelTest {
             listarProductosUseCase = ListarProductosUseCase(repo),
             registrarProductoUseCase = RegistrarProductoUseCase(repo),
             actualizarProductoUseCase = ActualizarProductoUseCase(repo),
-            eliminarProductoUseCase = EliminarProductoUseCase(repo)
+            eliminarProductoUseCase = EliminarProductoUseCase(repo),
+            obtenerProductoUseCase = ObtenerProductoUseCase(repo)
         )
     }
 
@@ -149,8 +153,6 @@ class ProductoViewModelTest {
 
         viewModel.eliminarProducto(1L)
         
-        // Antes de que termine la corrutina de cargarProductos o eliminar, 
-        // pero advanceUntilIdle() ejecutará todo.
         advanceUntilIdle()
 
         val uiState = viewModel.uiState.value
@@ -158,5 +160,44 @@ class ProductoViewModelTest {
         
         assertTrue(operacion is ProductoUiState.Operacion.Inactiva, "La operación debería ser Inactiva después de terminar")
         assertTrue(repo.eliminarInvocado, "El repositorio de eliminar debería haber sido invocado")
+    }
+
+    class FakeRepoNoEncontrado : FakeRepoBase() {
+        override suspend fun obtener(id: Long): Producto {
+            throw ErrorApi.NoEncontrado()
+        }
+    }
+
+    @Test
+    fun debe_mostrar_NoEncontrado_al_buscar_id_inexistente() = runTest {
+        val repo = FakeRepoNoEncontrado()
+        val viewModel = createViewModel(repo)
+
+        viewModel.buscarPorId("999999")
+        advanceUntilIdle()
+
+        val fase = viewModel.uiState.value.fase
+        assertTrue(fase is ProductoUiState.Fase.Error, "La fase debería ser Error")
+        assertEquals("Recurso no encontrado", (fase as ProductoUiState.Fase.Error).mensaje)
+    }
+
+    class FakeRepoCancelacion : FakeRepoBase() {
+        override suspend fun listar(): List<Producto> {
+            throw CancellationException("Operación cancelada")
+        }
+    }
+
+    @Test
+    fun debe_propagar_CancellationException_sin_marcar_fase_de_error() = runTest {
+        val repo = FakeRepoCancelacion()
+        val viewModel = createViewModel(repo)
+
+        assertFailsWith<CancellationException> {
+            viewModel.cargarProductos()
+            advanceUntilIdle()
+        }
+        
+        val fase = viewModel.uiState.value.fase
+        assertTrue(fase is ProductoUiState.Fase.Cargando, "La fase debería seguir siendo Cargando, no un Error")
     }
 }
