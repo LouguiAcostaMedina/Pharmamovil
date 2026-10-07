@@ -22,12 +22,17 @@ import pe.edu.upeu.pharmamobile.presentation.navigation.*
 import pe.edu.upeu.pharmamobile.presentation.producto.ProductoScreen
 import pe.edu.upeu.pharmamobile.presentation.theme.PharmaMobilTheme
 
+import org.koin.compose.KoinContext
+import org.koin.core.context.GlobalContext
+import pe.edu.upeu.pharmamobile.di.initKoin
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun App() {
-    KoinApplication(application = {
-        modules(appModule, platformModule)
-    }) {
+    if (GlobalContext.getOrNull() == null) {
+        initKoin()
+    }
+    KoinContext {
         var isDarkMode by remember { mutableStateOf(false) }
 
         PharmaMobilTheme(darkTheme = isDarkMode) {
