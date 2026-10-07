@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
 import org.koin.compose.KoinApplication
 import pe.edu.upeu.pharmamobile.di.appModule
+import pe.edu.upeu.pharmamobile.di.platformModule
 import pe.edu.upeu.pharmamobile.presentation.navigation.*
 import pe.edu.upeu.pharmamobile.presentation.producto.ProductoScreen
 import pe.edu.upeu.pharmamobile.presentation.theme.PharmaMobilTheme
@@ -25,7 +26,7 @@ import pe.edu.upeu.pharmamobile.presentation.theme.PharmaMobilTheme
 @Composable
 fun App() {
     KoinApplication(application = {
-        modules(appModule)
+        modules(appModule, platformModule)
     }) {
         var isDarkMode by remember { mutableStateOf(false) }
 

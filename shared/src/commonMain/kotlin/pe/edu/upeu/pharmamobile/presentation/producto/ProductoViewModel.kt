@@ -17,12 +17,16 @@ import pe.edu.upeu.pharmamobile.domain.usecase.ObtenerProductoUseCase
 import pe.edu.upeu.pharmamobile.domain.model.ErrorApi
 import kotlinx.coroutines.CancellationException
 
+import pe.edu.upeu.pharmamobile.domain.platform.Compartidor
+import pe.edu.upeu.pharmamobile.platform.formatearSoles
+
 class ProductoViewModel(
     private val listarProductosUseCase: ListarProductosUseCase,
     private val registrarProductoUseCase: RegistrarProductoUseCase,
     private val actualizarProductoUseCase: ActualizarProductoUseCase,
     private val eliminarProductoUseCase: EliminarProductoUseCase,
-    private val obtenerProductoUseCase: ObtenerProductoUseCase
+    private val obtenerProductoUseCase: ObtenerProductoUseCase,
+    private val compartidor: Compartidor
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProductoUiState())
@@ -232,5 +236,10 @@ class ProductoViewModel(
                 mensaje = ""
             )
         }
+    }
+
+    fun compartirProducto(producto: Producto) {
+        val texto = "${producto.nombre} — ${formatearSoles(producto.precio)} · Stock: ${producto.stock}"
+        compartidor.compartir(texto)
     }
 }
