@@ -73,3 +73,30 @@ Esta sección detalla la configuración e integración del cliente Ktor con el b
   - **Productos:** CRUD Completo implementado.
   - **Clientes:** UI solamente. Se han maquetado los campos visualmente sin conexión a lógica.
   - **Pedidos:** UI solamente. Interfaz creada para gestionar las ventas sin integración a backend.
+
+## Capacidades nativas
+Esta sección documenta la integración de funcionalidades específicas de plataforma mediante el patrón `expect/actual` y la inyección de dependencias multiplataforma.
+
+- **Formato de precios en soles:** Implementado mediante el patrón `expect/actual` para proveer el formato regional correcto nativo (p. ej. `NumberFormat.getCurrencyInstance` en Android).
+- **Compartir productos:** Se abstrajo mediante la interfaz `Compartidor` (`expect interface Compartidor`) y se definieron sus implementaciones nativas correspondientes para invocar los intents de compartir del sistema operativo.
+- **Rutas de Formato (expect/actual):**
+  - Común: `shared/src/commonMain/kotlin/pe/edu/upeu/pharmamobile/platform/Format.kt`
+  - Android: `shared/src/androidMain/kotlin/pe/edu/upeu/pharmamobile/platform/Format.kt`
+  - iOS: `shared/src/iosMain/kotlin/pe/edu/upeu/pharmamobile/platform/Format.kt`
+  - Desktop: `shared/src/desktopMain/kotlin/pe/edu/upeu/pharmamobile/platform/Format.kt`
+- **Rutas de Compartir (Compartidor):**
+  - Interfaz: `shared/src/commonMain/kotlin/pe/edu/upeu/pharmamobile/platform/Compartidor.kt`
+  - Android: `shared/src/androidMain/kotlin/pe/edu/upeu/pharmamobile/platform/CompartidorAndroid.kt`
+  - iOS: `shared/src/iosMain/kotlin/pe/edu/upeu/pharmamobile/platform/CompartidorIos.kt`
+  - Desktop: `shared/src/desktopMain/kotlin/pe/edu/upeu/pharmamobile/platform/CompartidorDesktop.kt`
+- **Inyección y Koin (`platformModule`):**
+  - Android: `shared/src/androidMain/kotlin/pe/edu/upeu/pharmamobile/di/PlatformModule.kt` (Utiliza `androidContext()` que viene desde `PharmaApplication`).
+  - iOS: `shared/src/iosMain/kotlin/pe/edu/upeu/pharmamobile/di/PlatformModule.kt`
+  - Desktop: `shared/src/desktopMain/kotlin/pe/edu/upeu/pharmamobile/di/PlatformModule.kt`
+- **Uso en Presentación:**
+  - `ProductoViewModel.kt`: Recibe `Compartidor` por inyección y expone el método `compartirProducto` orquestando la construcción del texto compartido.
+  - `ProductoScreen.kt`: Utiliza `formatearSoles()` en la UI y conecta el evento `onClick` del botón Compartir hacia el ViewModel.
+- **Estado de Validación por Plataforma:**
+  - **Android:** ✅ Verificado (Compilado y funcional en entorno Windows/Emulador).
+  - **Desktop (JVM):** ✅ Verificado (Compilado exitosamente).
+  - **iOS:** ⏳ Pendiente (Desarrollado en código, pendiente compilación o ejecución real en entorno macOS).
