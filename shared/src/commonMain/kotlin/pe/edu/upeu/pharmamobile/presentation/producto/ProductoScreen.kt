@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +32,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import pe.edu.upeu.pharmamobile.domain.model.Producto
+import pe.edu.upeu.pharmamobile.platform.formatearSoles
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,7 +121,8 @@ fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
                                     producto = producto,
                                     enCurso = state.operacion is ProductoUiState.Operacion.EnCurso,
                                     onEdit = { viewModel.onEditarProducto(producto) },
-                                    onDelete = { showDeleteDialog = producto.id }
+                                    onDelete = { showDeleteDialog = producto.id },
+                                    onShare = { viewModel.compartirProducto(producto) }
                                 )
                             }
                         }
@@ -320,7 +323,7 @@ fun MensajeFase(mensaje: String, esError: Boolean = false) {
 }
 
 @Composable
-fun TarjetaProducto(producto: Producto, enCurso: Boolean, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun TarjetaProducto(producto: Producto, enCurso: Boolean, onEdit: () -> Unit, onDelete: () -> Unit, onShare: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -359,7 +362,7 @@ fun TarjetaProducto(producto: Producto, enCurso: Boolean, onEdit: () -> Unit, on
                         }
                     }
                     Text(
-                        text = "S/ ${producto.precio}",
+                        text = formatearSoles(producto.precio),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.primary,
@@ -404,6 +407,18 @@ fun TarjetaProducto(producto: Producto, enCurso: Boolean, onEdit: () -> Unit, on
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(
+                    onClick = onShare,
+                    enabled = !enCurso,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Share,
+                        contentDescription = "Compartir",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
                 IconButton(
                     onClick = onEdit,
                     enabled = !enCurso,
