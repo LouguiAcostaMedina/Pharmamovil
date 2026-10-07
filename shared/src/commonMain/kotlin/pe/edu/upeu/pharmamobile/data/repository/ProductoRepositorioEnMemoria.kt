@@ -19,4 +19,21 @@ class ProductoRepositorioEnMemoria : ProductoRepository {
         delay((300..800).random().toLong())
         return productos.toList()
     }
+
+    override suspend fun obtener(id: Long): Producto {
+        return productos.find { it.id == id } ?: throw Exception("Not found")
+    }
+
+    override suspend fun actualizar(p: Producto): Producto {
+        val index = productos.indexOfFirst { it.id == p.id }
+        if (index != -1) {
+            productos[index] = p
+            return p
+        }
+        throw Exception("Not found")
+    }
+
+    override suspend fun eliminar(id: Long) {
+        productos.removeAll { it.id == id }
+    }
 }
