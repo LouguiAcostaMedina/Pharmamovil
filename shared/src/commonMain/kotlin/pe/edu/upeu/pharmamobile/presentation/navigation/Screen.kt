@@ -31,6 +31,7 @@ sealed class Screen(val title: String, val icon: ImageVector) {
     data object Productos : Screen("Registro de Productos", Icons.Default.ShoppingCart)
     data object Clientes : Screen("Gestión de Clientes", Icons.Default.Person)
     data object Pedidos : Screen("Gestión de Pedidos", Icons.Default.Receipt)
+    data object AcercaDe : Screen("Acerca de", Icons.Default.Info)
 }
 
 @Composable
