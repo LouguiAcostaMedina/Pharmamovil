@@ -44,7 +44,8 @@ fun App() {
                 Screen.Inicio,
                 Screen.Productos,
                 Screen.Clientes,
-                Screen.Pedidos
+                Screen.Pedidos,
+                Screen.AcercaDe
             )
 
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -197,6 +198,7 @@ fun App() {
                                     Screen.Productos -> ProductoScreen()
                                     Screen.Clientes -> ClientesScreen()
                                     Screen.Pedidos -> PedidosScreen()
+                                    Screen.AcercaDe -> AcercaDeScreen()
                                 }
                             }
                         }
@@ -306,6 +308,7 @@ fun App() {
                                     Screen.Productos -> ProductoScreen()
                                     Screen.Clientes -> ClientesScreen()
                                     Screen.Pedidos -> PedidosScreen()
+                                    Screen.AcercaDe -> AcercaDeScreen()
                                 }
                             }
                         }
