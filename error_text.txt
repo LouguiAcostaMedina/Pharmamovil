@@ -1,0 +1,11 @@
+> Task :shared:compileAndroidMain
+e: file:///C:/Users/XD/Documents/PharmaMobile/PharmaMobile/shared/src/commonMain/kotlin/pe/edu/upeu/pharmamobile/platform/Format.kt:3:1 Expected formatearSoles has no actual declaration in module <commonMain> for JVM
+
+> Task :shared:compileAndroidMain FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':shared:compileAndroidMain'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.btapi.BuildToolsApiCompilationWork
+   > Compilation error. See log for more details
