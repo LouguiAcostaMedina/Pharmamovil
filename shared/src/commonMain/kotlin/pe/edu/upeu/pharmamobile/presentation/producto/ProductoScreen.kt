@@ -34,14 +34,28 @@ import org.koin.compose.koinInject
 import pe.edu.upeu.pharmamobile.domain.model.Producto
 import pe.edu.upeu.pharmamobile.platform.formatearSoles
 
+import androidx.compose.material.icons.filled.Lock
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
+fun ProductoScreen(
+    puedeEscribir: Boolean = true,
+    onSesionExpirada: () -> Unit = {},
+    onProbar403: (() -> Unit)? = null,
+    viewModel: ProductoViewModel = koinInject()
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     
     var showDeleteDialog by remember { mutableStateOf<Long?>(null) }
+
+    LaunchedEffect(state.fase) {
+        val fase = state.fase
+        if (fase is ProductoUiState.Fase.Error && (fase.mensaje.contains("401") || fase.mensaje.contains("autorizado", ignoreCase = true) || fase.mensaje.contains("iniciar sesión", ignoreCase = true))) {
+            onSesionExpirada()
+        }
+    }
 
     LaunchedEffect(state.mensaje) {
         if (state.mensaje.isNotEmpty()) {
@@ -72,7 +86,79 @@ fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
                     .padding(if (isCompact) 12.dp else 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                FormularioProducto(state, viewModel)
+                if (puedeEscribir) {
+                    FormularioProducto(state, viewModel)
+                } else {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Lock,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Column {
+                                Text(
+                                    text = "Modo Consulta de Catálogo (Solo Lectura)",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    text = "Su usuario no tiene el permiso CATALOGO_ESCRIBIR para registrar o editar productos.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (onProbar403 != null) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp).fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                Text(
+                                    text = "Demostración de Permisos S10 (HTTP 403)",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "Solicita /api/v1/clientes para evidenciar la respuesta 403 Forbidden sin perder la sesión.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Button(
+                                onClick = onProbar403,
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Probar 403", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
                 
                 var searchQuery by remember { mutableStateOf("") }
                 
@@ -120,6 +206,7 @@ fun ProductoScreen(viewModel: ProductoViewModel = koinInject()) {
                                 TarjetaProducto(
                                     producto = producto,
                                     enCurso = state.operacion is ProductoUiState.Operacion.EnCurso,
+                                    puedeEscribir = puedeEscribir,
                                     onEdit = { viewModel.onEditarProducto(producto) },
                                     onDelete = { showDeleteDialog = producto.id },
                                     onShare = { viewModel.compartirProducto(producto) }
@@ -323,7 +410,14 @@ fun MensajeFase(mensaje: String, esError: Boolean = false) {
 }
 
 @Composable
-fun TarjetaProducto(producto: Producto, enCurso: Boolean, onEdit: () -> Unit, onDelete: () -> Unit, onShare: () -> Unit) {
+fun TarjetaProducto(
+    producto: Producto,
+    enCurso: Boolean,
+    puedeEscribir: Boolean = true,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onShare: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -419,29 +513,31 @@ fun TarjetaProducto(producto: Producto, enCurso: Boolean, onEdit: () -> Unit, on
                         modifier = Modifier.size(22.dp)
                     )
                 }
-                IconButton(
-                    onClick = onEdit,
-                    enabled = !enCurso,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Edit,
-                        contentDescription = "Editar",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                IconButton(
-                    onClick = onDelete,
-                    enabled = !enCurso,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = "Eliminar",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(22.dp)
-                    )
+                if (puedeEscribir) {
+                    IconButton(
+                        onClick = onEdit,
+                        enabled = !enCurso,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "Editar",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onDelete,
+                        enabled = !enCurso,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = "Eliminar",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
             }
         }

@@ -30,7 +30,9 @@ private suspend fun mapExceptionToErrorApi(e: Exception): ErrorApi {
 
             when (response.status.value) {
                 400 -> ErrorApi.Validacion(message, errorDto?.validationErrors ?: emptyMap())
-                404 -> ErrorApi.NoEncontrado("Producto no encontrado")
+                401 -> ErrorApi.NoAutorizado(message)
+                403 -> ErrorApi.Prohibido(message)
+                404 -> ErrorApi.NoEncontrado(message.ifBlank { "Producto no encontrado" })
                 409 -> ErrorApi.Conflicto(message)
                 else -> ErrorApi.Desconocido(message)
             }
