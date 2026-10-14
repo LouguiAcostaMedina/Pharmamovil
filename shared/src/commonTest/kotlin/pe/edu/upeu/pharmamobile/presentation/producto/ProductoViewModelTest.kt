@@ -12,8 +12,9 @@ import pe.edu.upeu.pharmamobile.domain.usecase.ListarProductosUseCase
 import pe.edu.upeu.pharmamobile.domain.usecase.ActualizarProductoUseCase
 import pe.edu.upeu.pharmamobile.domain.usecase.EliminarProductoUseCase
 import pe.edu.upeu.pharmamobile.domain.usecase.ObtenerProductoUseCase
-import kotlinx.coroutines.CancellationException
 import pe.edu.upeu.pharmamobile.domain.model.ErrorApi
+import pe.edu.upeu.pharmamobile.domain.platform.Compartidor
+import kotlinx.coroutines.CancellationException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProductoViewModelTest {
@@ -84,7 +85,10 @@ class ProductoViewModelTest {
             registrarProductoUseCase = RegistrarProductoUseCase(repo),
             actualizarProductoUseCase = ActualizarProductoUseCase(repo),
             eliminarProductoUseCase = EliminarProductoUseCase(repo),
-            obtenerProductoUseCase = ObtenerProductoUseCase(repo)
+            obtenerProductoUseCase = ObtenerProductoUseCase(repo),
+            compartidor = object : Compartidor {
+                override fun compartir(texto: String) {}
+            }
         )
     }
 
