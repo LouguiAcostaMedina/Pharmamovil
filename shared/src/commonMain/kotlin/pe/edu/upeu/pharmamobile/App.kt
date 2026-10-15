@@ -62,6 +62,18 @@ fun App() {
             }
         }
 
+        LaunchedEffect(sesion) {
+            val sesionActual = sesion
+            if (sesionActual != null) {
+                productoViewModel.limpiarEstado()
+                if (sesionActual.puede("CATALOGO_LEER")) {
+                    productoViewModel.cargarProductos()
+                }
+            } else {
+                productoViewModel.limpiarEstado()
+            }
+        }
+
         PharmaMobilTheme(darkTheme = isDarkMode) {
             val sesionActiva = sesion
             if (sesionActiva == null) {
