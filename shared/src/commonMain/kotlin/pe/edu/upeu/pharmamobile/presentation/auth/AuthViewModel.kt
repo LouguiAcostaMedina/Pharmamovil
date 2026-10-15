@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import pe.edu.upeu.pharmamobile.data.network.AuthApi
+import pe.edu.upeu.pharmamobile.data.network.DiagnosticoS10Api
+import pe.edu.upeu.pharmamobile.data.network.ResultadoDiagnostico
 import pe.edu.upeu.pharmamobile.domain.model.Credenciales
 import pe.edu.upeu.pharmamobile.domain.model.ErrorSesion
 import pe.edu.upeu.pharmamobile.domain.model.Sesion
@@ -21,7 +23,8 @@ class AuthViewModel(
     private val iniciarSesionUseCase: IniciarSesionUseCase,
     private val cerrarSesionUseCase: CerrarSesionUseCase,
     private val obtenerSesionGuardadaUseCase: ObtenerSesionGuardadaUseCase,
-    private val authApi: AuthApi
+    private val authApi: AuthApi,
+    private val diagnosticoApi: DiagnosticoS10Api? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -32,6 +35,12 @@ class AuthViewModel(
 
     private val _mensajePermiso = MutableStateFlow<String?>(null)
     val mensajePermiso: StateFlow<String?> = _mensajePermiso.asStateFlow()
+
+    private val _resultadoDiagnostico = MutableStateFlow<ResultadoDiagnostico?>(null)
+    val resultadoDiagnostico: StateFlow<ResultadoDiagnostico?> = _resultadoDiagnostico.asStateFlow()
+
+    private val _diagnosticoCargando = MutableStateFlow(false)
+    val diagnosticoCargando: StateFlow<Boolean> = _diagnosticoCargando.asStateFlow()
 
     init {
         verificarSesionGuardada()
@@ -130,11 +139,52 @@ class AuthViewModel(
             cerrarSesionUseCase()
             _sesionState.value = null
             _uiState.value = LoginUiState(avisoExpiracion = aviso)
+            _mensajePermiso.value = null
         }
     }
 
-    fun notificarSesionExpirada() {
-        cerrarSesion("Su sesión ha expirado. Por favor, vuelva a identificarse.")
+    fun notificarSesionExpirada(aviso: String = "Su sesión ha expirado o no es válida. Por favor, vuelva a identificarse.") {
+        cerrarSesion(aviso)
+    }
+
+    fun ejecutarEscenarioDiagnostico(num: Int) {
+        val diag = diagnosticoApi ?: return
+        viewModelScope.launch {
+            _diagnosticoCargando.value = true
+            val resultado = when (num) {
+                1 -> diag.ejecutarE01TokenValido(_sesionState.value)
+                2 -> diag.ejecutarE02TokenExpirado(_sesionState.value) { aviso -> notificarSesionExpirada(aviso) }
+                3 -> diag.ejecutarE03TokenAlterado(_sesionState.value) { aviso -> notificarSesionExpirada(aviso) }
+                4 -> diag.ejecutarE04SinCabecera()
+                5 -> diag.ejecutarE05PrefijoIncorrecto(_sesionState.value)
+                6 -> diag.ejecutarE06UsuarioDeshabilitado(_sesionState.value) { aviso -> notificarSesionExpirada(aviso) }
+                else -> null
+            }
+            _resultadoDiagnostico.value = resultado
+            _diagnosticoCargando.value = false
+        }
+    }
+
+    fun ejecutarOperacionMatriz(op: Int) {
+        val diag = diagnosticoApi ?: return
+        viewModelScope.launch {
+            _diagnosticoCargando.value = true
+            val resultado = when (op) {
+                1 -> diag.opListarProductos(_sesionState.value)
+                2 -> diag.opRegistrarProducto(_sesionState.value)
+                3 -> diag.opListarClientes(_sesionState.value)
+                4 -> diag.opRegistrarVenta(_sesionState.value)
+                5 -> diag.opVerReportes(_sesionState.value)
+                6 -> diag.opConsultarAuthMe(_sesionState.value)
+                else -> null
+            }
+            _resultadoDiagnostico.value = resultado
+            _diagnosticoCargando.value = false
+        }
+    }
+
+    fun limpiarResultadoDiagnostico() {
+        _resultadoDiagnostico.value = null
     }
 
     /**
@@ -176,3 +226,4 @@ class AuthViewModel(
         }
     }
 }
+
