@@ -190,6 +190,14 @@ class ProductoViewModel(
                         operacion = ProductoUiState.Operacion.Fallida(tipo, e.message)
                     )
                 }
+            } catch (e: ErrorApi.NoAutorizado) {
+                _uiState.update {
+                    it.copy(
+                        operacion = ProductoUiState.Operacion.Fallida(tipo, e.message),
+                        fase = ProductoUiState.Fase.Error(e.message),
+                        mensaje = e.message
+                    )
+                }
             } catch (e: ErrorApi) {
                 _uiState.update {
                     it.copy(
@@ -206,6 +214,10 @@ class ProductoViewModel(
                 }
             }
         }
+    }
+
+    fun limpiarEstado() {
+        _uiState.value = ProductoUiState(fase = ProductoUiState.Fase.SinProductos)
     }
 
     fun onEditarProducto(producto: Producto) {
@@ -243,3 +255,4 @@ class ProductoViewModel(
         compartidor.compartir(texto)
     }
 }
+

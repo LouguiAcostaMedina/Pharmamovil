@@ -24,8 +24,10 @@ import org.koin.core.context.GlobalContext
 import pe.edu.upeu.pharmamobile.di.initKoin
 import pe.edu.upeu.pharmamobile.presentation.auth.AuthViewModel
 import pe.edu.upeu.pharmamobile.presentation.auth.LoginScreen
+import pe.edu.upeu.pharmamobile.presentation.diagnostico.DiagnosticoS10Screen
 import pe.edu.upeu.pharmamobile.presentation.navigation.*
 import pe.edu.upeu.pharmamobile.presentation.producto.ProductoScreen
+import pe.edu.upeu.pharmamobile.presentation.producto.ProductoViewModel
 import pe.edu.upeu.pharmamobile.presentation.theme.PharmaMobilTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,10 +38,16 @@ fun App() {
     }
     KoinContext {
         val authViewModel: AuthViewModel = koinInject()
+        val productoViewModel: ProductoViewModel = koinInject()
         val sesion by authViewModel.sesionState.collectAsStateWithLifecycle()
         val mensajePermiso by authViewModel.mensajePermiso.collectAsStateWithLifecycle()
         val snackbarHostState = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
+
+        val ejecutarCierreSesion = {
+            authViewModel.cerrarSesion()
+            productoViewModel.limpiarEstado()
+        }
 
         var isDarkMode by remember { mutableStateOf(false) }
 
@@ -73,6 +81,10 @@ fun App() {
                         if (sesionActiva.puede("VENTAS_LEER")) {
                             add(Screen.Pedidos)
                         }
+                        if (sesionActiva.puede("REPORTES_VER")) {
+                            add(Screen.Reportes)
+                        }
+                        add(Screen.Diagnostico)
                         add(Screen.AcercaDe)
                     }
                 }
@@ -147,7 +159,7 @@ fun App() {
                                         onClick = {
                                             scope.launch {
                                                 drawerState.close()
-                                                authViewModel.cerrarSesion()
+                                                ejecutarCierreSesion()
                                             }
                                         },
                                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
@@ -210,7 +222,7 @@ fun App() {
                                             }
                                         },
                                         actions = {
-                                            IconButton(onClick = { authViewModel.cerrarSesion() }) {
+                                            IconButton(onClick = { ejecutarCierreSesion() }) {
                                                 Icon(
                                                     imageVector = Icons.Default.ExitToApp,
                                                     contentDescription = "Cerrar sesión"
@@ -228,10 +240,12 @@ fun App() {
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(paddingValues)
-                                ) {
+                                 ) {
                                     RenderizarPantalla(
                                         pantalla = pantallaActual,
                                         sesion = sesionActiva,
+                                        authViewModel = authViewModel,
+                                        productoViewModel = productoViewModel,
                                         onSesionExpirada = { authViewModel.notificarSesionExpirada() },
                                         onProbar403 = { authViewModel.probar403Controlado() }
                                     )
@@ -281,7 +295,7 @@ fun App() {
 
                                 // Botón Cerrar Sesión en Rail
                                 IconButton(
-                                    onClick = { authViewModel.cerrarSesion() },
+                                    onClick = { ejecutarCierreSesion() },
                                     modifier = Modifier.padding(bottom = 8.dp)
                                 ) {
                                     Icon(
@@ -327,7 +341,7 @@ fun App() {
                                                     )
                                                 }
                                                 Button(
-                                                    onClick = { authViewModel.cerrarSesion() },
+                                                    onClick = { ejecutarCierreSesion() },
                                                     colors = ButtonDefaults.buttonColors(
                                                         containerColor = MaterialTheme.colorScheme.errorContainer,
                                                         contentColor = MaterialTheme.colorScheme.onErrorContainer
@@ -355,6 +369,8 @@ fun App() {
                                     RenderizarPantalla(
                                         pantalla = pantallaActual,
                                         sesion = sesionActiva,
+                                        authViewModel = authViewModel,
+                                        productoViewModel = productoViewModel,
                                         onSesionExpirada = { authViewModel.notificarSesionExpirada() },
                                         onProbar403 = { authViewModel.probar403Controlado() }
                                     )
@@ -372,6 +388,8 @@ fun App() {
 private fun RenderizarPantalla(
     pantalla: Screen,
     sesion: pe.edu.upeu.pharmamobile.domain.model.Sesion,
+    authViewModel: AuthViewModel,
+    productoViewModel: ProductoViewModel,
     onSesionExpirada: () -> Unit,
     onProbar403: () -> Unit
 ) {
@@ -380,10 +398,13 @@ private fun RenderizarPantalla(
         Screen.Productos -> ProductoScreen(
             puedeEscribir = sesion.puede("CATALOGO_ESCRIBIR"),
             onSesionExpirada = onSesionExpirada,
-            onProbar403 = onProbar403
+            onProbar403 = onProbar403,
+            viewModel = productoViewModel
         )
         Screen.Clientes -> ClientesScreen()
         Screen.Pedidos -> PedidosScreen()
+        Screen.Reportes -> ReportesScreen(sesion = sesion)
+        Screen.Diagnostico -> DiagnosticoS10Screen(sesion = sesion, viewModel = authViewModel)
         Screen.AcercaDe -> AcercaDeScreen()
     }
 }

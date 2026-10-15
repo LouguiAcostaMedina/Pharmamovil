@@ -15,8 +15,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
@@ -280,6 +279,74 @@ fun LoginScreen(
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("Almacén", fontSize = 12.sp)
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                var mostrarDiagSinSesion by remember { mutableStateOf(false) }
+                val resultadoDiag by viewModel.resultadoDiagnostico.collectAsStateWithLifecycle()
+                val cargandoDiag by viewModel.diagnosticoCargando.collectAsStateWithLifecycle()
+
+                OutlinedButton(
+                    onClick = { mostrarDiagSinSesion = !mostrarDiagSinSesion },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(if (mostrarDiagSinSesion) "Ocultar Diagnóstico S10 (Sin Sesión)" else "Diagnóstico S10: E04 Sin Cabecera", fontSize = 12.sp)
+                }
+
+                AnimatedVisibility(visible = mostrarDiagSinSesion) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "Diagnóstico S10 Sin Sesión (E04)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "Solicita GET /api/v1/productos sin cabecera Authorization para verificar HTTP 401.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Button(
+                                onClick = { viewModel.ejecutarEscenarioDiagnostico(4) },
+                                enabled = !cargandoDiag,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                if (cargandoDiag) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Ejecutando E04...", fontSize = 12.sp)
+                                } else {
+                                    Text("Ejecutar E04: Sin Cabecera", fontSize = 12.sp)
+                                }
+                            }
+
+                            resultadoDiag?.let { res ->
+                                if (res.escenario.contains("E04")) {
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                                Text("HTTP ${res.codigoHttp}", fontWeight = FontWeight.Bold, color = if (res.codigoHttp == 401) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                                                Text("${res.metodo} ${res.ruta}", style = MaterialTheme.typography.bodySmall)
+                                            }
+                                            Text("Mensaje literal: \"${res.mensaje}\"", style = MaterialTheme.typography.bodySmall)
+                                            Text("Estado sesión: ${res.estadoSesion}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
