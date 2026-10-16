@@ -50,9 +50,15 @@ fun ProductoScreen(
     
     var showDeleteDialog by remember { mutableStateOf<Long?>(null) }
 
+    LaunchedEffect(Unit) {
+        if (state.fase is ProductoUiState.Fase.SinProductos) {
+            viewModel.cargarProductos()
+        }
+    }
+
     LaunchedEffect(state.fase) {
         val fase = state.fase
-        if (fase is ProductoUiState.Fase.Error && (fase.mensaje.contains("401") || fase.mensaje.contains("autorizado", ignoreCase = true) || fase.mensaje.contains("iniciar sesión", ignoreCase = true))) {
+        if (fase is ProductoUiState.Fase.Error && (fase.mensaje.contains("401") || fase.mensaje.contains("autorizado", ignoreCase = true) || fase.mensaje.contains("iniciar sesión", ignoreCase = true) || fase.mensaje.contains("expirado", ignoreCase = true))) {
             onSesionExpirada()
         }
     }

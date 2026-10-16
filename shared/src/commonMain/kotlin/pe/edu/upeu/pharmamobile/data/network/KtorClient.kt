@@ -57,3 +57,32 @@ fun crearHttpClient(
         socketTimeoutMillis = 15000L
     }
 }
+
+/**
+ * Cliente de diagnóstico exclusivo para pruebas S10 de laboratorio.
+ * No instala el plugin Auth para permitir enviar peticiones sin cabecera (E04)
+ * o con prefijos de cabecera alterados manualmente (E05) sin intercepción ni reintentos.
+ */
+fun crearClienteDiagnostico(): HttpClient = httpClient {
+    expectSuccess = false
+
+    install(ContentNegotiation) {
+        json(Json {
+            prettyPrint = true
+            isLenient = true
+            ignoreUnknownKeys = true
+        })
+    }
+
+    install(DefaultRequest) {
+        url(obtenerUrlBase())
+        contentType(ContentType.Application.Json)
+    }
+
+    install(HttpTimeout) {
+        requestTimeoutMillis = 15000L
+        connectTimeoutMillis = 15000L
+        socketTimeoutMillis = 15000L
+    }
+}
+

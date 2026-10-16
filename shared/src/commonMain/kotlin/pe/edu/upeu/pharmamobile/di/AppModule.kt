@@ -8,6 +8,8 @@ import org.koin.dsl.KoinAppDeclaration
 import org.koin.dsl.module
 import pe.edu.upeu.pharmamobile.data.network.AuthApi
 import pe.edu.upeu.pharmamobile.data.network.ProductoApi
+import pe.edu.upeu.pharmamobile.data.network.DiagnosticoS10Api
+import pe.edu.upeu.pharmamobile.data.network.crearClienteDiagnostico
 import pe.edu.upeu.pharmamobile.data.network.crearHttpClient
 import pe.edu.upeu.pharmamobile.data.repository.AuthRepositorioRest
 import pe.edu.upeu.pharmamobile.data.repository.ProductoRepositorioKtor
@@ -24,6 +26,7 @@ val appModule = module {
     // APIs
     single { ProductoApi(get()) }
     single { AuthApi(get()) }
+    single { DiagnosticoS10Api(get(), crearClienteDiagnostico(), get()) }
 
     // Repositorios
     single<ProductoRepository> { ProductoRepositorioKtor(get()) }

@@ -16,7 +16,7 @@ import pe.edu.upeu.pharmamobile.domain.usecase.EliminarProductoUseCase
 import pe.edu.upeu.pharmamobile.domain.usecase.ObtenerProductoUseCase
 import pe.edu.upeu.pharmamobile.domain.model.ErrorApi
 import kotlinx.coroutines.CancellationException
-
+import kotlinx.coroutines.Job
 import pe.edu.upeu.pharmamobile.domain.platform.Compartidor
 import pe.edu.upeu.pharmamobile.platform.formatearSoles
 
@@ -32,12 +32,15 @@ class ProductoViewModel(
     private val _uiState = MutableStateFlow(ProductoUiState())
     val uiState: StateFlow<ProductoUiState> = _uiState.asStateFlow()
 
+    private var cargarJob: Job? = null
+
     init {
-        cargarProductos()
+        // No cargar productos automáticamente en init sin una sesión autenticada activa
     }
 
     fun cargarProductos() {
-        viewModelScope.launch {
+        cargarJob?.cancel()
+        cargarJob = viewModelScope.launch {
             _uiState.update { it.copy(fase = ProductoUiState.Fase.Cargando) }
             try {
                 val lista = listarProductosUseCase()
@@ -190,6 +193,14 @@ class ProductoViewModel(
                         operacion = ProductoUiState.Operacion.Fallida(tipo, e.message)
                     )
                 }
+            } catch (e: ErrorApi.NoAutorizado) {
+                _uiState.update {
+                    it.copy(
+                        operacion = ProductoUiState.Operacion.Fallida(tipo, e.message),
+                        fase = ProductoUiState.Fase.Error(e.message),
+                        mensaje = e.message
+                    )
+                }
             } catch (e: ErrorApi) {
                 _uiState.update {
                     it.copy(
@@ -206,6 +217,11 @@ class ProductoViewModel(
                 }
             }
         }
+    }
+
+    fun limpiarEstado() {
+        cargarJob?.cancel()
+        _uiState.value = ProductoUiState(fase = ProductoUiState.Fase.SinProductos)
     }
 
     fun onEditarProducto(producto: Producto) {
@@ -243,3 +259,4 @@ class ProductoViewModel(
         compartidor.compartir(texto)
     }
 }
+

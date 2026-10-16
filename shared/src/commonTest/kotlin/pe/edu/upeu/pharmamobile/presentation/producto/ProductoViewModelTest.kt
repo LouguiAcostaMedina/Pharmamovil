@@ -202,4 +202,56 @@ class ProductoViewModelTest {
         val fase = viewModel.uiState.value.fase
         assertTrue(fase is ProductoUiState.Fase.Cargando, "La fase debería seguir siendo Cargando, no un Error")
     }
+
+    @Test
+    fun limpiarEstado_cancela_job_y_reinicia_fase_a_SinProductos() = runTest {
+        val repo = FakeRepoError()
+        val viewModel = createViewModel(repo)
+
+        viewModel.cargarProductos()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.fase is ProductoUiState.Fase.Error, "Inicialmente debe estar en Error")
+
+        viewModel.limpiarEstado()
+
+        assertTrue(viewModel.uiState.value.fase is ProductoUiState.Fase.SinProductos, "Tras limpiarEstado debe ser SinProductos")
+    }
+
+    @Test
+    fun login_posterior_a_error_401_limpia_estado_y_permite_cargar_productos_sin_error_residual() = runTest {
+        var debeFallar = true
+        val repoDinamico = object : FakeRepoBase() {
+            override suspend fun listar(): List<Producto> {
+                if (debeFallar) {
+                    throw ErrorApi.NoAutorizado("Debe iniciar sesión para acceder a este recurso")
+                } else {
+                    return listOf(Producto(1, "Paracetamol", 2.50, 100))
+                }
+            }
+        }
+
+        val viewModel = createViewModel(repoDinamico)
+
+        // 1. Petición previa al login que falla con 401
+        viewModel.cargarProductos()
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.fase is ProductoUiState.Fase.Error)
+        val msgError = (viewModel.uiState.value.fase as ProductoUiState.Fase.Error).mensaje
+        assertTrue(msgError.contains("iniciar sesión"))
+
+        // 2. Al autenticar la sesión se limpia el estado residual
+        viewModel.limpiarEstado()
+        assertTrue(viewModel.uiState.value.fase is ProductoUiState.Fase.SinProductos)
+
+        // 3. Ya con sesión autenticada el backend responde 200 OK
+        debeFallar = false
+        viewModel.cargarProductos()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.fase is ProductoUiState.Fase.ConProductos, "La fase debe ser ConProductos")
+        val lista = (viewModel.uiState.value.fase as ProductoUiState.Fase.ConProductos).lista
+        assertEquals(1, lista.size)
+        assertEquals("Paracetamol", lista.first().nombre)
+    }
 }
