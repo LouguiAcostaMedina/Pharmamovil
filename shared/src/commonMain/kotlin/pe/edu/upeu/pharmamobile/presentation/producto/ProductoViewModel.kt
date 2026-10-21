@@ -3,10 +3,13 @@ package pe.edu.upeu.pharmamobile.presentation.producto
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import pe.edu.upeu.pharmamobile.domain.model.ErrorApi
 import pe.edu.upeu.pharmamobile.domain.model.Producto
@@ -31,9 +34,31 @@ class ProductoViewModel(
     val uiState: StateFlow<ProductoUiState> = _uiState.asStateFlow()
 
     private var observacionIniciada = false
+    private var tickerJob: Job? = null
 
     init {
         iniciarObservacion()
+        actualizarMarcaSincronizacion()
+    }
+
+    fun actualizarMarcaSincronizacion() {
+        val ts = repositorio.obtenerUltimaSincronizacion()
+        _uiState.update {
+            it.copy(
+                ultimaSincronizacionTimestamp = ts,
+                ultimaSincronizacion = AntiguedadSincronizacion.formatear(ts)
+            )
+        }
+    }
+
+    fun iniciarTickerAntiguedad() {
+        tickerJob?.cancel()
+        tickerJob = viewModelScope.launch {
+            while (isActive) {
+                delay(30_000L)
+                actualizarMarcaSincronizacion()
+            }
+        }
     }
 
     fun iniciarObservacion() {
@@ -74,6 +99,7 @@ class ProductoViewModel(
             _uiState.update { it.copy(sincronizando = true, avisoRed = null) }
             try {
                 repositorio.sincronizar()
+                val nuevoTimestamp = repositorio.obtenerUltimaSincronizacion()
                 _uiState.update { state ->
                     val fase = if (state.productos.isEmpty()) {
                         ProductoUiState.Fase.SinProductos
@@ -83,7 +109,9 @@ class ProductoViewModel(
                     state.copy(
                         sincronizando = false,
                         avisoRed = null,
-                        fase = fase
+                        fase = fase,
+                        ultimaSincronizacionTimestamp = nuevoTimestamp,
+                        ultimaSincronizacion = AntiguedadSincronizacion.formatear(nuevoTimestamp)
                     )
                 }
             } catch (e: CancellationException) {

@@ -407,6 +407,7 @@ private fun RenderizarPantalla(
     when (pantalla) {
         Screen.Inicio -> InicioScreen()
         Screen.Productos -> ProductoScreen(
+            sesion = sesion,
             puedeEscribir = sesion.puede("CATALOGO_ESCRIBIR"),
             onSesionExpirada = onSesionExpirada,
             onProbar403 = onProbar403,

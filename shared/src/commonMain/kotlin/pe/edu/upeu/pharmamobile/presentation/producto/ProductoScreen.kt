@@ -35,6 +35,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import pe.edu.upeu.pharmamobile.domain.model.Producto
+import pe.edu.upeu.pharmamobile.domain.model.Sesion
 import pe.edu.upeu.pharmamobile.platform.formatearSoles
 
 import androidx.compose.material.icons.filled.Lock
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.filled.Lock
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductoScreen(
+    sesion: Sesion? = null,
     puedeEscribir: Boolean = true,
     onSesionExpirada: () -> Unit = {},
     onProbar403: (() -> Unit)? = null,
@@ -56,6 +58,7 @@ fun ProductoScreen(
     LaunchedEffect(Unit) {
         viewModel.iniciarObservacion()
         viewModel.sincronizar()
+        viewModel.iniciarTickerAntiguedad()
     }
 
     LaunchedEffect(state.fase) {
@@ -94,6 +97,41 @@ fun ProductoScreen(
                     .padding(if (isCompact) 12.dp else 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                if (sesion?.requiereRenovacion == true) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Warning,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                            Column {
+                                Text(
+                                    text = "Sesión Caducada (Modo Offline Restringido)",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                                Text(
+                                    text = "Los datos locales se conservan para consulta. La sesión requiere renovación en línea al recuperar conexión.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                    }
+                }
+
                 if (puedeEscribir) {
                     FormularioProducto(state, viewModel)
                 } else {
@@ -167,7 +205,40 @@ fun ProductoScreen(
                         }
                     }
                 }
-                
+                // Indicador de antigüedad de sincronización en lenguaje natural
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = state.ultimaSincronizacion,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(
+                        onClick = { viewModel.sincronizar() },
+                        enabled = !state.sincronizando,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Sync,
+                            contentDescription = "Sincronizar ahora",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
                 var searchQuery by remember { mutableStateOf("") }
                 
                 OutlinedTextField(
