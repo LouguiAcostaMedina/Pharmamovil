@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS metadata_sincronizacion (
+    clave TEXT NOT NULL PRIMARY KEY,
+    valor TEXT NOT NULL
+);

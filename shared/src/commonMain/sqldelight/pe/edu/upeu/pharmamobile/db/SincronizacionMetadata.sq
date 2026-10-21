@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS metadata_sincronizacion (
+    clave TEXT NOT NULL PRIMARY KEY,
+    valor TEXT NOT NULL
+);
+
+obtenerMetadata:
+SELECT valor FROM metadata_sincronizacion WHERE clave = ?;
+
+guardarMetadata:
+INSERT OR REPLACE INTO metadata_sincronizacion (clave, valor) VALUES (?, ?);
+
+borrarMetadata:
+DELETE FROM metadata_sincronizacion WHERE clave = ?;

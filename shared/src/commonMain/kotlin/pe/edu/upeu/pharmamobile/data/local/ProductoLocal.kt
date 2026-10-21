@@ -15,6 +15,19 @@ class ProductoLocal(
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default
 ) {
     private val consultas = base.productoQueries
+    private val consultasMetadata = base.sincronizacionMetadataQueries
+
+    fun obtenerUltimaSincronizacion(): Long? {
+        return try {
+            consultasMetadata.obtenerMetadata("ultima_sincronizacion").executeAsOneOrNull()?.toLongOrNull()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun guardarUltimaSincronizacion(timestampEpochSegundos: Long) {
+        consultasMetadata.guardarMetadata("ultima_sincronizacion", timestampEpochSegundos.toString())
+    }
 
     fun observar(): Flow<List<Producto>> =
         consultas.listarTodos()

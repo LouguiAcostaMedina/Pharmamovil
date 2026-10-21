@@ -16,6 +16,13 @@ class CreadorDeDriverDesktop : CreadorDeDriver {
         val driver = JdbcSqliteDriver("jdbc:sqlite:${dbFile.absolutePath}")
         if (!dbFile.exists() || dbFile.length() == 0L) {
             PharmaDb.Schema.create(driver)
+        } else {
+            driver.execute(null, """
+                CREATE TABLE IF NOT EXISTS metadata_sincronizacion (
+                    clave TEXT NOT NULL PRIMARY KEY,
+                    valor TEXT NOT NULL
+                );
+            """.trimIndent(), 0)
         }
         return driver
     }
