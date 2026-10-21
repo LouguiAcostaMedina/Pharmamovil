@@ -32,6 +32,15 @@ class ProductoRepositorioOffline(
         mutexSincronizacion.withLock {
             subirPendientes()
             descargarYActualizarCatalogo()
+            local.guardarUltimaSincronizacion(pe.edu.upeu.pharmamobile.tiempoActualEpochSegundos())
+        }
+    }
+
+    override fun obtenerUltimaSincronizacion(): Long? = local.obtenerUltimaSincronizacion()
+
+    override suspend fun descargarCatalogo() {
+        mutexSincronizacion.withLock {
+            descargarYActualizarCatalogo()
         }
     }
 

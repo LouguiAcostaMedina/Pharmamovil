@@ -73,13 +73,6 @@ class AuthRepositorioRest(
             return null
         }
 
-        // 1. Validar vigencia del token (si expira en el payload)
-        val exp = extraerExpiracion(token)
-        if (exp != null && exp <= tiempoActualEpochSegundos()) {
-            cerrarSesion()
-            return null
-        }
-
         return try {
             // Revalida con /auth/me en el servidor cuando hay red
             val usuarioDto = authApi.me()
@@ -105,12 +98,30 @@ class AuthRepositorioRest(
             if (e is HttpRequestTimeoutException || e is IOException || e is ErrorSesion.SinConexion || e.message?.contains("connect", ignoreCase = true) == true) {
                 val datos = almacen.leerDatosSesion()
                 if (datos != null && datos.usuario.isNotBlank()) {
-                    Sesion(
-                        token = token,
-                        usuario = datos.usuario,
-                        nombreCompleto = datos.nombreCompleto,
-                        permisos = datos.permisos
-                    )
+                    val exp = extraerExpiracion(token)
+                    val expirado = exp != null && exp <= tiempoActualEpochSegundos()
+                    if (expirado) {
+                        // Política B05: Sesión caducada sin red
+                        // Se preserva el acceso de solo lectura al catálogo local guardado,
+                        // restringiendo a permisos de lectura y marcando requiereRenovacion = true.
+                        // El token y pendientes se preservan intactos sin forzar logout sin red.
+                        val permisosLectura = datos.permisos.filter { it.endsWith("_LEER") }.toSet()
+                        Sesion(
+                            token = token,
+                            usuario = datos.usuario,
+                            nombreCompleto = "${datos.nombreCompleto} (Sesión caducada)",
+                            permisos = permisosLectura,
+                            requiereRenovacion = true
+                        )
+                    } else {
+                        Sesion(
+                            token = token,
+                            usuario = datos.usuario,
+                            nombreCompleto = datos.nombreCompleto,
+                            permisos = datos.permisos,
+                            requiereRenovacion = false
+                        )
+                    }
                 } else {
                     throw ErrorSesion.SinConexion
                 }

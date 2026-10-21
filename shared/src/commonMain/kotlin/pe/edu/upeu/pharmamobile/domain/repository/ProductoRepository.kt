@@ -24,4 +24,10 @@ interface ProductoRepository {
 
     /** Elimina un producto por su ID */
     suspend fun eliminar(id: Long)
+
+    /** Retorna el timestamp epoch en segundos de la última sincronización completa exitosa, o null si nunca sincronizó */
+    fun obtenerUltimaSincronizacion(): Long? = null
+
+    /** Descarga el catálogo remoto e incorpora los productos en la base local sin tocar los pendientes */
+    suspend fun descargarCatalogo() {}
 }
