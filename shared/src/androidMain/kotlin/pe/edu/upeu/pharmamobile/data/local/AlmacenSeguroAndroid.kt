@@ -26,11 +26,34 @@ class AlmacenSeguroAndroid(contexto: Context) : AlmacenSeguro {
         return prefs.getString(CLAVE, null)
     }
 
+    override fun guardarDatosSesion(usuario: String, nombreCompleto: String, permisos: Set<String>) {
+        prefs.edit()
+            .putString(KEY_USUARIO, usuario)
+            .putString(KEY_NOMBRE, nombreCompleto)
+            .putStringSet(KEY_PERMISOS, permisos)
+            .apply()
+    }
+
+    override fun leerDatosSesion(): DatosSesionSegura? {
+        val usuario = prefs.getString(KEY_USUARIO, null) ?: return null
+        val nombre = prefs.getString(KEY_NOMBRE, usuario) ?: usuario
+        val permisos = prefs.getStringSet(KEY_PERMISOS, emptySet()) ?: emptySet()
+        return DatosSesionSegura(usuario, nombre, permisos)
+    }
+
     override fun borrarToken() {
-        prefs.edit().remove(CLAVE).apply()
+        prefs.edit()
+            .remove(CLAVE)
+            .remove(KEY_USUARIO)
+            .remove(KEY_NOMBRE)
+            .remove(KEY_PERMISOS)
+            .apply()
     }
 
     private companion object {
         const val CLAVE = "jwt"
+        const val KEY_USUARIO = "sesion_usuario"
+        const val KEY_NOMBRE = "sesion_nombre"
+        const val KEY_PERMISOS = "sesion_permisos"
     }
 }

@@ -20,7 +20,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import org.koin.compose.KoinContext
 import org.koin.compose.koinInject
-import org.koin.core.context.GlobalContext
 import pe.edu.upeu.pharmamobile.di.initKoin
 import pe.edu.upeu.pharmamobile.presentation.auth.AuthViewModel
 import pe.edu.upeu.pharmamobile.presentation.auth.LoginScreen
@@ -33,8 +32,8 @@ import pe.edu.upeu.pharmamobile.presentation.theme.PharmaMobilTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun App() {
-    if (GlobalContext.getOrNull() == null) {
-        initKoin()
+    remember {
+        runCatching { initKoin() }
     }
     KoinContext {
         val authViewModel: AuthViewModel = koinInject()

@@ -13,6 +13,14 @@ import pe.edu.upeu.pharmamobile.data.model.ProductoRequestDto
 
 class ProductoRepositorioKtor(private val api: ProductoApi) : ProductoRepository {
     
+    override fun observar(): kotlinx.coroutines.flow.Flow<List<Producto>> = kotlinx.coroutines.flow.flow {
+        emit(listar())
+    }
+
+    override suspend fun sincronizar() {
+        // No-op en implementación REST pura
+    }
+
     override suspend fun listar(): List<Producto> {
         return safeApiCall {
             val response = api.listar()
@@ -25,7 +33,9 @@ class ProductoRepositorioKtor(private val api: ProductoApi) : ProductoRepository
                     activo = dto.estado,
                     descripcion = "",
                     imagen = "",
-                    categoria = dto.categoriaNombre ?: ""
+                    categoria = dto.categoriaNombre ?: "",
+                    categoriaId = dto.categoriaId,
+                    pendiente = false
                 )
             }
         }
@@ -42,7 +52,9 @@ class ProductoRepositorioKtor(private val api: ProductoApi) : ProductoRepository
                 activo = dto.estado,
                 descripcion = "",
                 imagen = "",
-                categoria = dto.categoriaNombre ?: ""
+                categoria = dto.categoriaNombre ?: "",
+                categoriaId = dto.categoriaId,
+                pendiente = false
             )
         }
     }

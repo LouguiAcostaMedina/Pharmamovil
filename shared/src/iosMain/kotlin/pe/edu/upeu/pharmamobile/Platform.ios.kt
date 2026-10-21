@@ -1,5 +1,7 @@
 package pe.edu.upeu.pharmamobile
 
+import platform.Foundation.NSDate
+import platform.Foundation.timeIntervalSince1970
 import platform.UIKit.UIDevice
 
 class IOSPlatform: Platform {
@@ -7,3 +9,5 @@ class IOSPlatform: Platform {
 }
 
 actual fun getPlatform(): Platform = IOSPlatform()
+
+actual fun tiempoActualEpochSegundos(): Long = NSDate().timeIntervalSince1970.toLong()

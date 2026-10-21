@@ -17,6 +17,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.SyncProblem
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,9 +54,8 @@ fun ProductoScreen(
     var showDeleteDialog by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(Unit) {
-        if (state.fase is ProductoUiState.Fase.SinProductos) {
-            viewModel.cargarProductos()
-        }
+        viewModel.iniciarObservacion()
+        viewModel.sincronizar()
     }
 
     LaunchedEffect(state.fase) {
@@ -188,6 +190,50 @@ fun ProductoScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                // Banner de aviso de conectividad y persistencia local
+                if (state.avisoRed != null) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Warning,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = state.avisoRed ?: "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                            Button(
+                                onClick = { viewModel.sincronizar() },
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text("Reintentar", fontSize = 11.sp)
+                            }
+                        }
+                    }
+                }
+
+                if (state.sincronizando) {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                }
+
                 when (val fase = state.fase) {
                     is ProductoUiState.Fase.Cargando -> {
                         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
@@ -195,15 +241,49 @@ fun ProductoScreen(
                         }
                     }
                     is ProductoUiState.Fase.SinProductos -> {
-                        MensajeFase("No hay productos registrados aún. ¡Registra el primero!")
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            MensajeFase("No hay productos en la base de datos local.")
+                            Spacer(Modifier.height(8.dp))
+                            Button(
+                                onClick = { viewModel.sincronizar() },
+                                enabled = !state.sincronizando
+                            ) {
+                                Icon(Icons.Filled.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Sincronizar con el servidor")
+                            }
+                        }
                     }
                     is ProductoUiState.Fase.ConProductos -> {
-                        Text(
-                            text = "Inventario de Productos (${fase.lista.size})",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Inventario de Productos (${fase.lista.size})",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            FilledTonalButton(
+                                onClick = { viewModel.sincronizar() },
+                                enabled = !state.sincronizando,
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Sync,
+                                    contentDescription = "Sincronizar",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("Sincronizar", fontSize = 12.sp)
+                            }
+                        }
                         LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxWidth().weight(1f)
@@ -220,6 +300,7 @@ fun ProductoScreen(
                             }
                         }
                     }
+
                     is ProductoUiState.Fase.Error -> {
                         MensajeFase("Ocurrió un error: ${fase.mensaje}", esError = true)
                     }
@@ -449,10 +530,37 @@ fun TarjetaProducto(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "ID: ${producto.id}",
+                            text = if (producto.pendiente) "ID local temporal: ${producto.id}" else "ID: ${producto.id}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (producto.pendiente) Color(0xFFE65100) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        if (producto.pendiente) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFFFFF3E0),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB74D)),
+                                modifier = Modifier.padding(top = 2.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.SyncProblem,
+                                        contentDescription = "Pendiente de sincronizar",
+                                        tint = Color(0xFFE65100),
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Pendiente de sincronizar",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFFE65100),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
                         if (producto.categoria.isNotBlank()) {
                             Text(
                                 text = producto.categoria,
