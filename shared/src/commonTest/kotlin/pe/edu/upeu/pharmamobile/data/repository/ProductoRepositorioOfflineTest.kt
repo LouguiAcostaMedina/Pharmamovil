@@ -17,6 +17,7 @@ import pe.edu.upeu.pharmamobile.data.network.ProductoApi
 import pe.edu.upeu.pharmamobile.db.PharmaDb
 import pe.edu.upeu.pharmamobile.domain.model.ErrorApi
 import pe.edu.upeu.pharmamobile.domain.model.Producto
+import pe.edu.upeu.pharmamobile.presentation.producto.AntiguedadSincronizacion
 import kotlin.test.*
 
 class ProductoRepositorioOfflineTest {
@@ -46,8 +47,16 @@ class ProductoRepositorioOfflineTest {
         }
     }
 
+    // =========================================================================
+    // PRODUCTO 1: SEIS PRUEBAS OBLIGATORIAS (ACTIVIDAD AUTÓNOMA S11)
+    // =========================================================================
+
+    /**
+     * Caso 1. Sincronización con red:
+     * Tras sincronizar, la base contiene los productos del servidor y el Flow emite la lista completa.
+     */
     @Test
-    fun con_red_sincronizar_escribe_en_la_base_y_el_Flow_emite_datos() = runTest {
+    fun caso1_sincronizacion_con_red_escribe_en_base_y_flow_emite_lista_completa() = runTest {
         val (driver, db) = crearBaseEnMemoria()
         try {
             val local = ProductoLocal(db)
@@ -100,7 +109,7 @@ class ProductoRepositorioOfflineTest {
             // El Flow emite automáticamente los datos persistidos
             val productos = repo.observar().first()
             assertEquals(2, productos.size)
-            assertEquals("Ibuprofeno 400mg", productos[0].nombre) // Orden alfabetico
+            assertEquals("Ibuprofeno 400mg", productos[0].nombre) // Orden alfabetico por nombre
             assertEquals("Paracetamol 500mg", productos[1].nombre)
             assertEquals(1L, productos[1].id)
             assertFalse(productos[0].pendiente)
@@ -110,8 +119,13 @@ class ProductoRepositorioOfflineTest {
         }
     }
 
+    /**
+     * Caso 2. Registro sin red:
+     * Al fallar el envío por desconexión, el producto permanece guardado con ID negativo y marca de pendiente,
+     * y el Flow lo emite igualmente.
+     */
     @Test
-    fun sin_red_registrar_conserva_un_producto_con_ID_negativo_y_pendiente_visible_desde_el_Flow() = runTest {
+    fun caso2_registro_sin_red_conserva_producto_con_id_negativo_y_marca_pendiente() = runTest {
         val (driver, db) = crearBaseEnMemoria()
         try {
             val local = ProductoLocal(db)
@@ -149,8 +163,13 @@ class ProductoRepositorioOfflineTest {
         }
     }
 
+    /**
+     * Caso 3. Envío al reconectar:
+     * El pendiente se envía mediante POST antes de descargar. La respuesta confirma un ID positivo,
+     * elimina la marca de pendiente y deja una única representación local.
+     */
     @Test
-    fun reconexion_primero_POST_despues_GET_ID_real_pendiente_eliminado_y_una_sola_representacion_local() = runTest {
+    fun caso3_envio_al_reconectar_sube_pendiente_mediante_post_antes_de_descarga_asigna_id_positivo_y_elimina_pendiente() = runTest {
         val (driver, db) = crearBaseEnMemoria()
         try {
             val local = ProductoLocal(db)
@@ -170,7 +189,7 @@ class ProductoRepositorioOfflineTest {
             assertTrue(offline.id < 0L)
             assertTrue(offline.pendiente)
 
-            // 2. MockEngine que registra la secuencia de llamadas HTTP
+            // 2. MockEngine que registra la secuencia estricta de llamadas HTTP
             val llamadasHttp = mutableListOf<String>()
             val client = mockHttpClient { request ->
                 if (request.method == HttpMethod.Post && request.url.toString().contains("productos")) {
@@ -241,12 +260,190 @@ class ProductoRepositorioOfflineTest {
         }
     }
 
+    /**
+     * Caso 4. La descarga no borra pendientes:
+     * Ejecuta realmente una descarga (GET) y la actualización local. Comprueba que un pendiente local
+     * sobrevive Y que los productos descargados del servidor se incorporan correctamente a SQLite.
+     */
     @Test
-    fun regresion_repetir_sincronizacion_no_reenvia_lo_ya_confirmado() = runTest {
+    fun caso4_descarga_no_borra_pendientes_locales_e_incorpora_productos_del_servidor() = runTest {
         val (driver, db) = crearBaseEnMemoria()
         try {
             val local = ProductoLocal(db)
-            local.guardarPendiente(Producto(id = 0, nombre = "Naproxeno 550mg", precio = 6.0, stock = 15))
+
+            // 1. Guardar un producto creado offline (ID negativo, pendiente = true)
+            val pendienteLocal = local.guardarPendiente(
+                Producto(
+                    id = 0,
+                    nombre = "Producto Offline Pendiente",
+                    precio = 18.50,
+                    stock = 12,
+                    activo = true,
+                    categoria = "Inyectables",
+                    categoriaId = 3L
+                )
+            )
+            assertTrue(pendienteLocal.id < 0L)
+            assertTrue(pendienteLocal.pendiente)
+
+            // 2. MockEngine que responde exitosamente al GET con productos del servidor
+            var getEjecutado = false
+            val client = mockHttpClient { request ->
+                assertEquals(HttpMethod.Get, request.method)
+                getEjecutado = true
+                respond(
+                    content = """
+                        {
+                          "contenido": [
+                            {
+                              "id": 10,
+                              "nombre": "Amoxicilina Remota",
+                              "precio": 8.00,
+                              "stock": 45,
+                              "estado": true,
+                              "categoriaId": 1,
+                              "categoriaNombre": "Antibióticos"
+                            },
+                            {
+                              "id": 20,
+                              "nombre": "Omeprazol Remoto",
+                              "precio": 4.50,
+                              "stock": 60,
+                              "estado": true,
+                              "categoriaId": 2,
+                              "categoriaNombre": "Antiácidos"
+                            }
+                          ],
+                          "pagina": 0,
+                          "tamanio": 50,
+                          "totalElementos": 2,
+                          "totalPaginas": 1,
+                          "ultima": true
+                        }
+                    """.trimIndent(),
+                    status = HttpStatusCode.OK,
+                    headers = headersOf(HttpHeaders.ContentType, "application/json")
+                )
+            }
+            val repo = ProductoRepositorioOffline(local, ProductoApi(client))
+
+            // 3. Ejecutar descarga directa del catálogo
+            repo.descargarCatalogo()
+            assertTrue(getEjecutado, "Se debió ejecutar la petición GET de descarga")
+
+            // 4. Comprobar que en SQLite existen 3 productos: el pendiente local + los 2 descargados
+            val productos = repo.observar().first()
+            assertEquals(3, productos.size, "Debe contener el producto pendiente y los 2 descargados")
+
+            // 5. Verificar que el producto pendiente local SOBREVIVIÓ intacto
+            val encontradoPendiente = productos.firstOrNull { it.id == pendienteLocal.id }
+            assertNotNull(encontradoPendiente, "El producto pendiente offline debe sobrevivir en SQLite")
+            assertTrue(encontradoPendiente.pendiente)
+            assertEquals("Producto Offline Pendiente", encontradoPendiente.nombre)
+
+            // 6. Verificar que los productos descargados se incorporaron con ID positivo y pendiente = false
+            val remotos = productos.filter { it.id > 0L }
+            assertEquals(2, remotos.size)
+            assertTrue(remotos.all { !it.pendiente })
+            assertTrue(remotos.any { it.id == 10L && it.nombre == "Amoxicilina Remota" })
+            assertTrue(remotos.any { it.id == 20L && it.nombre == "Omeprazol Remoto" })
+            assertEquals(1L, local.contarPendientes(), "La cantidad de pendientes en la base sigue siendo 1")
+        } finally {
+            driver.close()
+        }
+    }
+
+    /**
+     * Caso 5. Identificadores sin colisión:
+     * Comprueba que un producto local con ID negativo y uno del servidor con ID positivo
+     * conviven sin sobrescribirse. Verifica cantidad, IDs y contenido de ambos.
+     */
+    @Test
+    fun caso5_identificadores_sin_colision_entre_productos_locales_negativos_y_remotos_positivos() = runTest {
+        val (driver, db) = crearBaseEnMemoria()
+        try {
+            val local = ProductoLocal(db)
+            val client = mockHttpClient { respondError(HttpStatusCode.NotFound) }
+            val repo = ProductoRepositorioOffline(local, ProductoApi(client))
+
+            // 1. Guardar producto remoto con ID positivo en la base local (sincronizado)
+            local.reemplazarSincronizados(
+                listOf(
+                    Producto(
+                        id = 1L,
+                        nombre = "Aspirina 100mg (Remoto)",
+                        precio = 1.50,
+                        stock = 200,
+                        activo = true,
+                        categoria = "Cardiología",
+                        categoriaId = 4L,
+                        pendiente = false
+                    )
+                )
+            )
+
+            // 2. Guardar producto local con ID negativo (pendiente)
+            val localPendiente = local.guardarPendiente(
+                Producto(
+                    id = 0,
+                    nombre = "Salbutamol Inhalador (Local)",
+                    precio = 22.00,
+                    stock = 15,
+                    activo = true,
+                    categoria = "Respiratorio",
+                    categoriaId = 5L
+                )
+            )
+
+            // 3. Verificar que el ID local es estrictamente negativo (-1)
+            assertTrue(localPendiente.id < 0L, "El ID local debe ser negativo: ${localPendiente.id}")
+
+            // 4. Observar la base de datos completa: ambos deben convivir sin colisión
+            val todos = repo.observar().first()
+            assertEquals(2, todos.size, "Deben existir exactamente 2 productos en la base")
+
+            // 5. Verificar contenido íntegro de cada producto
+            val prodRemoto = todos.first { it.id == 1L }
+            assertEquals("Aspirina 100mg (Remoto)", prodRemoto.nombre)
+            assertEquals(1.50, prodRemoto.precio)
+            assertEquals(200, prodRemoto.stock)
+            assertFalse(prodRemoto.pendiente)
+
+            val prodLocal = todos.first { it.id == localPendiente.id }
+            assertEquals("Salbutamol Inhalador (Local)", prodLocal.nombre)
+            assertEquals(22.00, prodLocal.precio)
+            assertEquals(15, prodLocal.stock)
+            assertTrue(prodLocal.pendiente)
+
+            // 6. Verificar que consultar por ID retorna la instancia exacta correspondiente
+            val recuperadoRemoto = repo.obtener(1L)
+            assertEquals(1L, recuperadoRemoto.id)
+            val recuperadoLocal = repo.obtener(localPendiente.id)
+            assertEquals(localPendiente.id, recuperadoLocal.id)
+        } finally {
+            driver.close()
+        }
+    }
+
+    /**
+     * Caso 6. Sincronizar dos veces no duplica:
+     * Ejecutar dos sincronizaciones completas sucesivas deja exactamente la misma cantidad de filas
+     * y los mismos IDs finales. Además, una creación ya confirmada no repite su POST.
+     */
+    @Test
+    fun caso6_sincronizar_dos_veces_no_duplica_registros_ni_repite_post_de_creacion_confirmada() = runTest {
+        val (driver, db) = crearBaseEnMemoria()
+        try {
+            val local = ProductoLocal(db)
+            local.guardarPendiente(
+                Producto(
+                    id = 0,
+                    nombre = "Naproxeno 550mg",
+                    precio = 6.0,
+                    stock = 15,
+                    categoriaId = 1L
+                )
+            )
 
             var postCount = 0
             var getCount = 0
@@ -270,19 +467,177 @@ class ProductoRepositorioOfflineTest {
             }
             val repo = ProductoRepositorioOffline(local, ProductoApi(client))
 
-            // Primera sincronización
+            // Primera sincronización completa
             repo.sincronizar()
-            assertEquals(1, postCount)
-            assertEquals(1, getCount)
+            assertEquals(1, postCount, "El primer POST debe ejecutarse")
+            assertEquals(1, getCount, "El primer GET debe ejecutarse")
 
-            // Segunda sincronización inmediata: NO debe volver a enviar POST
+            val listaPrimeraSync = repo.observar().first()
+            assertEquals(1, listaPrimeraSync.size)
+            val idsPrimeraSync = listaPrimeraSync.map { it.id }
+
+            // Segunda sincronización inmediata
             repo.sincronizar()
             assertEquals(1, postCount, "La segunda sincronización NO debe repetir el POST de creaciones ya confirmadas")
-            assertEquals(2, getCount)
+            assertEquals(2, getCount, "El segundo GET se ejecuta normalmente para refrescar")
+
+            val listaSegundaSync = repo.observar().first()
+            assertEquals(1, listaSegundaSync.size, "La cantidad de registros NO debe duplicarse")
+            assertEquals(idsPrimeraSync, listaSegundaSync.map { it.id }, "Los IDs finales deben permanecer idénticos")
+            assertFalse(listaSegundaSync[0].pendiente)
         } finally {
             driver.close()
         }
     }
+
+    // =========================================================================
+    // PRODUCTO 3: PRUEBAS DE ANTIGÜEDAD Y METADATOS DE SINCRONIZACIÓN
+    // =========================================================================
+
+    /**
+     * Producto 3.1: Caso sin sincronización previa retorna "Nunca sincronizado".
+     */
+    @Test
+    fun producto3_nunca_sincronizado_muestra_etiqueta_correspondiente() = runTest {
+        val (driver, db) = crearBaseEnMemoria()
+        try {
+            val local = ProductoLocal(db)
+            val client = mockHttpClient { respondError(HttpStatusCode.NotFound) }
+            val repo = ProductoRepositorioOffline(local, ProductoApi(client))
+
+            val timestamp = repo.obtenerUltimaSincronizacion()
+            assertNull(timestamp, "En una base nueva el timestamp de sincronización debe ser null")
+
+            val texto = AntiguedadSincronizacion.formatear(timestamp)
+            assertEquals("Nunca sincronizado", texto)
+        } finally {
+            driver.close()
+        }
+    }
+
+    /**
+     * Producto 3.2: Sincronización exitosa guarda la marca de tiempo persistentemente.
+     */
+    @Test
+    fun producto3_sincronizacion_exitosa_guarda_marca_de_tiempo_persistentemente() = runTest {
+        val (driver, db) = crearBaseEnMemoria()
+        try {
+            val local = ProductoLocal(db)
+            val client = mockHttpClient {
+                respond(
+                    content = """{"contenido": [], "pagina": 0, "tamanio": 50, "totalElementos": 0, "totalPaginas": 0, "ultima": true}""",
+                    status = HttpStatusCode.OK,
+                    headers = headersOf(HttpHeaders.ContentType, "application/json")
+                )
+            }
+            val repo = ProductoRepositorioOffline(local, ProductoApi(client))
+
+            assertNull(repo.obtenerUltimaSincronizacion())
+
+            // Sincronizar exitosamente
+            repo.sincronizar()
+
+            val timestamp = repo.obtenerUltimaSincronizacion()
+            assertNotNull(timestamp)
+            assertTrue(timestamp > 0L, "El timestamp debe ser un valor positivo en segundos epoch")
+
+            // Formatear justo después de sincronizar
+            val texto = AntiguedadSincronizacion.formatear(timestamp, ahoraEpochSegundos = timestamp + 10)
+            assertEquals("Actualizado hace unos instantes", texto)
+        } finally {
+            driver.close()
+        }
+    }
+
+    /**
+     * Producto 3.3: Un fallo en la sincronización NO actualiza la marca anterior.
+     */
+    @Test
+    fun producto3_fallo_en_sincronizacion_no_actualiza_marca_anterior() = runTest {
+        val (driver, db) = crearBaseEnMemoria()
+        try {
+            val local = ProductoLocal(db)
+            val marcaPrevia = 1700000000L
+            local.guardarUltimaSincronizacion(marcaPrevia)
+
+            // Mock que falla en la descarga
+            val client = mockHttpClient {
+                throw IOException("Fallo de red simulado")
+            }
+            val repo = ProductoRepositorioOffline(local, ProductoApi(client))
+
+            assertFailsWith<ErrorApi.SinConexion> {
+                repo.sincronizar()
+            }
+
+            // La marca debe conservarse exactamente igual a la previa
+            assertEquals(marcaPrevia, repo.obtenerUltimaSincronizacion(), "Un fallo debe preservar la marca previa sin actualizarla")
+        } finally {
+            driver.close()
+        }
+    }
+
+    /**
+     * Producto 3.4: Formato de antigüedad calcula minutos, horas y días con reloj inyectable.
+     */
+    @Test
+    fun producto3_formato_antiguedad_calcula_minutos_horas_y_dias_con_reloj_inyectable() {
+        val base = 1700000000L
+
+        // Casos nulos o no positivos
+        assertEquals("Nunca sincronizado", AntiguedadSincronizacion.formatear(null, ahoraEpochSegundos = base))
+        assertEquals("Nunca sincronizado", AntiguedadSincronizacion.formatear(0L, ahoraEpochSegundos = base))
+        assertEquals("Nunca sincronizado", AntiguedadSincronizacion.formatear(-10L, ahoraEpochSegundos = base))
+
+        // Menos de 60 segundos
+        assertEquals("Actualizado hace unos instantes", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + 30))
+        assertEquals("Actualizado hace unos instantes", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + 59))
+
+        // Minutos (singular y plural)
+        assertEquals("Actualizado hace 1 minuto", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + 60))
+        assertEquals("Actualizado hace 1 minuto", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + 119))
+        assertEquals("Actualizado hace 2 minutos", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + 120))
+        assertEquals("Actualizado hace 45 minutos", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + (45 * 60)))
+
+        // Horas (singular y plural)
+        assertEquals("Actualizado hace 1 hora", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + 3600))
+        assertEquals("Actualizado hace 1 hora", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + 7199))
+        assertEquals("Actualizado hace 2 horas", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + 7200))
+        assertEquals("Actualizado hace 18 horas", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + (18 * 3600)))
+
+        // Días (singular y plural)
+        assertEquals("Actualizado hace 1 día", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + 86400))
+        assertEquals("Actualizado hace 1 día", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + (86400 + 3600)))
+        assertEquals("Actualizado hace 2 días", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + (2 * 86400)))
+        assertEquals("Actualizado hace 7 días", AntiguedadSincronizacion.formatear(base, ahoraEpochSegundos = base + (7 * 86400)))
+    }
+
+    /**
+     * Producto 3.5: Persistencia de la marca de tiempo en SQLite al reabrir la base.
+     */
+    @Test
+    fun producto3_persistencia_de_marca_de_tiempo_al_reabrir_base_de_datos() {
+        val driver = crearDriverPruebas()
+        try {
+            val db1 = PharmaDb(driver)
+            val local1 = ProductoLocal(db1)
+            val timestampGuardado = 1729526400L // 21 Octubre 2026
+
+            local1.guardarUltimaSincronizacion(timestampGuardado)
+            assertEquals(timestampGuardado, local1.obtenerUltimaSincronizacion())
+
+            // Simular nueva instancia de PharmaDb sobre el mismo driver
+            val db2 = PharmaDb(driver)
+            val local2 = ProductoLocal(db2)
+            assertEquals(timestampGuardado, local2.obtenerUltimaSincronizacion(), "El timestamp debe persistir en la tabla metadata_sincronizacion")
+        } finally {
+            driver.close()
+        }
+    }
+
+    // =========================================================================
+    // REGRESIONES CRÍTICAS PRESERVADAS (S10 Y S11)
+    // =========================================================================
 
     @Test
     fun regresion_POST_correcto_seguido_de_fallo_de_GET_conserva_la_confirmacion() = runTest {
@@ -319,52 +674,6 @@ class ProductoRepositorioOfflineTest {
             assertEquals(55L, productos[0].id)
             assertFalse(productos[0].pendiente)
             assertEquals(0L, local.contarPendientes(), "No debe volver a marcarse como pendiente")
-        } finally {
-            driver.close()
-        }
-    }
-
-    @Test
-    fun regresion_descarga_no_borra_pendientes() = runTest {
-        val (driver, db) = crearBaseEnMemoria()
-        try {
-            val local = ProductoLocal(db)
-
-            // Guardar producto sincronizado previo
-            local.reemplazarSincronizados(listOf(Producto(id = 1, nombre = "Prod Servidor", precio = 10.0, stock = 5)))
-            // Guardar producto pendiente
-            val pendiente = local.guardarPendiente(Producto(id = 0, nombre = "Prod Pendiente Offline", precio = 20.0, stock = 2))
-
-            // Mock de descarga con otro producto del servidor
-            val client = mockHttpClient { request ->
-                if (request.method == HttpMethod.Post) {
-                    throw IOException("Sin red al intentar subir")
-                } else {
-                    respond(
-                        content = """
-                            {
-                              "contenido": [
-                                {"id": 1, "nombre": "Prod Servidor", "precio": 10.0, "stock": 5, "estado": true, "categoriaId": 1},
-                                {"id": 2, "nombre": "Prod Nuevo Servidor", "precio": 15.0, "stock": 8, "estado": true, "categoriaId": 1}
-                              ],
-                              "pagina": 0, "tamanio": 50, "totalElementos": 2, "totalPaginas": 1, "ultima": true
-                            }
-                        """.trimIndent(),
-                        status = HttpStatusCode.OK,
-                        headers = headersOf(HttpHeaders.ContentType, "application/json")
-                    )
-                }
-            }
-            val repo = ProductoRepositorioOffline(local, ProductoApi(client))
-
-            // Si falla la subida, la sincronización se aborta y NO borra el pendiente
-            assertFailsWith<ErrorApi.SinConexion> {
-                repo.sincronizar()
-            }
-
-            val productos = repo.observar().first()
-            val ids = productos.map { it.id }
-            assertTrue(ids.contains(pendiente.id), "El producto pendiente offline debe preservarse intacto")
         } finally {
             driver.close()
         }
