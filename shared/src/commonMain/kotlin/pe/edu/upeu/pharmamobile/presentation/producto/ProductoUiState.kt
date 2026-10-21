@@ -4,6 +4,10 @@ import pe.edu.upeu.pharmamobile.domain.model.Producto
 
 data class ProductoUiState(
     val fase: Fase = Fase.Cargando,
+    val productos: List<Producto> = emptyList(),
+    val sincronizando: Boolean = false,
+    val avisoRed: String? = null,
+    val ultimaSincronizacion: String? = null,
     val nombre: String = "",
     val precio: String = "",
     val stock: String = "",
