@@ -5,3 +5,5 @@ class DesktopPlatform : Platform {
 }
 
 actual fun getPlatform(): Platform = DesktopPlatform()
+
+actual fun tiempoActualEpochSegundos(): Long = System.currentTimeMillis() / 1000L
