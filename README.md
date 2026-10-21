@@ -173,3 +173,85 @@ cd c:\Users\XD\Documents\PharmaMobile\PharmaMobile
 - **Formato monetario:** `formatearSoles(valor: Double)` implementado con `expect/actual` (`NumberFormat` en Android y JVM, `NSNumberFormatter` en iOS).
 - **Compartir productos:** Interfaz `Compartidor` (`Intent.ACTION_SEND` en Android, `UIActivityViewController` en iOS).
 - **Información del dispositivo:** `InfoDispositivo` (`Build.VERSION.RELEASE` en Android, `UIDevice.currentDevice` en iOS).
+
+---
+
+## Actividad Autónoma S11: Pruebas Unitarias y Evidencia de Escenarios Offline
+
+Esta sección documenta los entregables, diseño técnico y resultados de la **Actividad Autónoma S11** en la rama `feature/s11-autonoma-acosta`.
+
+### 1. Suite de Pruebas Unitarias en `commonTest` (Producto 1 — 7 pts)
+
+Se diseñó e implementó la correspondencia exhaustiva entre los seis requerimientos obligatorios de la guía y los métodos en [ProductoRepositorioOfflineTest.kt](file:///shared/src/commonTest/kotlin/pe/edu/upeu/pharmamobile/data/repository/ProductoRepositorioOfflineTest.kt):
+
+| Requisito del PDF | Método de Prueba en `commonTest` | Comprobaciones Realizadas |
+| :--- | :--- | :--- |
+| **1. Sincronización con red** | `caso1_sincronizacion_con_red_escribe_en_base_y_flow_emite_lista_completa` | Inicialmente vacío; ejecuta sincronización con `MockEngine`; comprueba que SQLite contiene los 2 productos remotos y el `Flow` de `repo.observar()` emite automáticamente la lista completa ordenada alfabéticamente con marcas `pendiente = false`. |
+| **2. Registro sin red** | `caso2_registro_sin_red_conserva_producto_con_id_negativo_y_marca_pendiente` | Falla transporte de red simulando desconexión (`IOException`); el producto sobrevive en SQLite con ID negativo (`id < 0`), bandera `pendiente = true` y el `Flow` lo emite de inmediato. |
+| **3. Envío al reconectar** | `caso3_envio_al_reconectar_sube_pendiente_mediante_post_antes_de_descarga_asigna_id_positivo_y_elimina_pendiente` | Prepara producto pendiente local (-100); simula reconexión; ejecuta sincronización verificando orden estricto (primero sube pendientes vía POST, luego GET de catálogo); la respuesta confirma ID positivo oficial (+55), elimina la marca pendiente y deja una única fila en SQLite. |
+| **4. La descarga no borra pendientes** | `caso4_descarga_no_borra_pendientes_locales_e_incorpora_productos_del_servidor` | Inserta pendiente local (-1); ejecuta `descargarCatalogo()` que hace un GET real con 2 productos del servidor; verifica que el pendiente local NO es eliminado ni sobrescrito por la descarga y convive intacto junto a los 2 productos descargados (total 3). |
+| **5. Identificadores sin colisión** | `caso5_identificadores_sin_colision_entre_productos_locales_negativos_y_remotos_positivos` | Inserta producto offline con ID negativo (-1L) y producto remoto confirmado con ID positivo (+100L); verifica que ambos coexisten en la base sin pisarse, comprobando cantidad (2), IDs respectivos y nombres independientes. |
+| **6. Sincronizar dos veces no duplica** | `caso6_sincronizar_dos_veces_no_duplica_registros_ni_repite_post_de_creacion_confirmada` | Ejecuta dos llamadas sucesivas a `repo.sincronizar()`; comprueba que la cantidad de registros en la base no se altera (siguen siendo 2), los IDs permanecen constantes y que el POST de creación ya confirmada no se vuelve a invocar en la segunda sincronización. |
+
+#### Comandos de Ejecución y Apertura del Reporte
+Para ejecutar la suite completa de pruebas unitarias multiplataforma:
+```powershell
+cd c:\Users\XD\Documents\PharmaMobile\PharmaMobile
+.\gradlew.bat desktopTest --info
+```
+
+Para visualizar el reporte interactivo completo en Chrome o Edge:
+```powershell
+# Abrir en Microsoft Edge:
+Start-Process msedge "file:///c:/Users/XD/Documents/PharmaMobile/PharmaMobile/shared/build/reports/tests/desktopTest/index.html"
+
+# O en Google Chrome:
+Start-Process chrome "file:///c:/Users/XD/Documents/PharmaMobile/PharmaMobile/shared/build/reports/tests/desktopTest/index.html"
+```
+Una vez abierto el reporte en el navegador:
+1. Ir a la pestaña **Classes**.
+2. Hacer clic en `pe.edu.upeu.pharmamobile.data.repository.ProductoRepositorioOfflineTest`.
+3. Se desplegarán los 14 métodos (los 6 obligatorios, 5 de antigüedad y 3 de regresión) con 100% de tasa de éxito.
+
+---
+
+### 2. Antigüedad de los Datos y Marca Temporal (Producto 3 — 3 pts)
+
+* **Tabla de Metadatos y Persistencia:** Se añadió la tabla `metadata_sincronizacion(clave TEXT PRIMARY KEY, valor TEXT)` en `SincronizacionMetadata.sq` y la migración `1.sqm`. Adicionalmente, el driver desktop (`CreadorDeDriverDesktop.kt`) aplica creación idempotente `CREATE TABLE IF NOT EXISTS` garantizando compatibilidad retrospectiva sin necesidad de borrar bases existentes.
+* **Regla de Actualización Atómica:** La marca temporal (`ultima_sincronizacion_epoch_seg`) se almacena exclusivamente tras completar con éxito:
+  1. La confirmación de todas las subidas de pendientes locales.
+  2. La descarga paginada íntegra de los productos remotos.
+  3. La transacción local de actualización en SQLite.
+  Cualquier fallo de transporte en red o corte intermedio aborta la actualización de la marca, conservando intacto el valor previo.
+* **Formato en Lenguaje Natural con Reloj Inyectable:** La clase `AntiguedadSincronizacion` calcula la diferencia temporal frente a un reloj inyectable (`tiempoActualEpoch: () -> Long`), permitiendo pruebas unitarias deterministas sin depender del reloj del sistema:
+  - `null` o sin registro previo: `"Nunca sincronizado"`
+  - Menor a 60 segundos: `"Actualizado hace unos instantes"`
+  - 1 minuto: `"Actualizado hace 1 minuto"`
+  - 2 a 59 minutos: `"Actualizado hace X minutos"`
+  - 1 hora: `"Actualizado hace 1 hora"`
+  - 2 a 23 horas: `"Actualizado hace X horas"`
+  - 1 día: `"Actualizado hace 1 día"`
+  - 2 o más días: `"Actualizado hace X días"`
+* **Visualización Dinámica en UI:** En `ProductoScreen.kt`, la cabecera del catálogo muestra el indicador con icono de actualización, el texto en lenguaje natural y un botón de sincronización manual rápida. Un ticker en segundo plano refresca la etiqueta periódicamente mientras la pantalla permanece abierta.
+
+---
+
+### 3. Bitácora de Escenarios Offline (Producto 2 — 6 pts)
+
+* **B01 — Apertura sin red con datos previos:** Con sesión iniciada y catálogo sincronizado, al cerrar la app y pasar a modo desconectado, SQLite mantiene intactos los registros. La UI muestra el catálogo inmediatamente y presenta el aviso contextual de modo offline.
+* **B02 — Registro sin red:** Estando autenticado como `admin` sin conexión al backend, se registra un producto. La aplicación lo inserta en SQLite de inmediato asignándole un ID temporal negativo (`-1`), lo marca con estado visual "Pendiente" y lo lista en el catálogo.
+* **B03 — Reconexión y envío:** Al restablecer conexión con PharmaSoft y pulsar "Sincronizar", el repositorio sube el pendiente mediante `POST /api/v1/productos`, recibe el ID positivo oficial asignado por el backend, actualiza la fila local en SQLite y elimina la marca pendiente.
+* **B04 — Primera apertura sin red:** En una instalación limpia sin datos previos ni caché local, la aplicación abre en estado informativo: muestra `"Nunca sincronizado"`, estado vacío amigable indicando la necesidad de conectar para sincronizar por primera vez, sin generar excepciones no controladas ni bloqueos de pantalla.
+* **B05 — Sesión expirada sin red (Política Implementada):** Si el token JWT ha vencido según la hora local y no hay conexión con el backend:
+  1. Se preserva el acceso de solo lectura al catálogo guardado en SQLite para consulta operativa.
+  2. Los permisos se restringen a operaciones `_LEER`.
+  3. Se muestra un banner amigable advirtiendo que la sesión caducó y requerirá autenticación al reconectar.
+  4. NO se eliminan los productos pendientes guardados localmente.
+  5. Al recuperar la red, cualquier petición que responda HTTP 401 invalida formalmente la sesión forzando el login.
+
+---
+
+### 4. Resultados Verificados y Limitaciones
+* **Suite de Pruebas Desktop / JVM:** 39 pruebas ejecutadas, 39 exitosas (100% de éxito), 0 fallos, 0 omitidas.
+* **Backend PharmaSoft:** Verificado en commit compatible `dd72f15` con base de datos H2 persistente (`./data/pharmadb.mv.db`), respetando el esquema de seguridad JWT y catálogo de medicamentos.
+* **Declaración de Entorno Móvil / Multiplataforma:** La compilación y arquitectura de Android están completamente integradas con `AndroidSqliteDriver` y componentes Compose. El target iOS permanece como **PENDIENTE DE ENTORNO** al no disponerse de un host macOS/Xcode físico.
