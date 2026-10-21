@@ -35,11 +35,17 @@ class ProductoViewModelTest {
 
     open class FakeRepoBase : ProductoRepository {
         var llamadasRegistrar = 0
+        protected val flow = kotlinx.coroutines.flow.MutableStateFlow<List<Producto>>(emptyList())
+        override fun observar(): kotlinx.coroutines.flow.Flow<List<Producto>> = flow
+        override suspend fun sincronizar() {
+            flow.value = listar()
+        }
         override suspend fun registrar(p: Producto): Producto {
             llamadasRegistrar++
+            flow.value = flow.value + p
             return p
         }
-        override suspend fun listar(): List<Producto> = emptyList()
+        override suspend fun listar(): List<Producto> = flow.value
         override suspend fun obtener(id: Long): Producto = Producto(1, "", 0.0)
         override suspend fun actualizar(p: Producto): Producto = p
         override suspend fun eliminar(id: Long) {}
@@ -48,16 +54,20 @@ class ProductoViewModelTest {
     class FakeRepoVacio : FakeRepoBase()
 
     class FakeRepoLleno : FakeRepoBase() {
-        override suspend fun listar(): List<Producto> {
-            return listOf(
+        init {
+            flow.value = listOf(
                 Producto(1, "Paracetamol", 5.0, 100),
                 Producto(2, "Ibuprofeno", 8.0, 50),
                 Producto(3, "Amoxicilina", 15.0, 20)
             )
         }
+        override suspend fun listar(): List<Producto> = flow.value
     }
 
     class FakeRepoError : FakeRepoBase() {
+        override suspend fun sincronizar() {
+            throw Exception("Error simulado")
+        }
         override suspend fun listar(): List<Producto> {
             throw Exception("Error simulado")
         }
@@ -81,7 +91,7 @@ class ProductoViewModelTest {
 
     private fun createViewModel(repo: ProductoRepository): ProductoViewModel {
         return ProductoViewModel(
-            listarProductosUseCase = ListarProductosUseCase(repo),
+            repositorio = repo,
             registrarProductoUseCase = RegistrarProductoUseCase(repo),
             actualizarProductoUseCase = ActualizarProductoUseCase(repo),
             eliminarProductoUseCase = EliminarProductoUseCase(repo),
@@ -91,6 +101,7 @@ class ProductoViewModelTest {
             }
         )
     }
+
 
     // Paso 2: Pruebas Unitarias
 
