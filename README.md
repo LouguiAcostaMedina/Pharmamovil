@@ -254,4 +254,29 @@ Una vez abierto el reporte en el navegador:
 ### 4. Resultados Verificados y Limitaciones
 * **Suite de Pruebas Desktop / JVM:** 39 pruebas ejecutadas, 39 exitosas (100% de éxito), 0 fallos, 0 omitidas.
 * **Backend PharmaSoft:** Verificado en commit compatible `dd72f15` con base de datos H2 persistente (`./data/pharmadb.mv.db`), respetando el esquema de seguridad JWT y catálogo de medicamentos.
-* **Declaración de Entorno Móvil / Multiplataforma:** La compilación y arquitectura de Android están completamente integradas con `AndroidSqliteDriver` y componentes Compose. El target iOS permanece como **PENDIENTE DE ENTORNO** al no disponerse de un host macOS/Xcode físico.
+* **Declaración de Entorno Móvil / Multiplataforma:** La compilación y arquitectura de Android están completamente integradas con `AndroidSqliteDriver` y componentes Compose. El target iOS permanece como **PENDIENTE DE ENTORNO** al no disponerse de un host macOS/Xcode físico.
+---
+
+## Actividad Práctica S13: Proyecto Integrador — Refinamiento Offline-First, Firebase y Permisos Nativos
+
+En la Sesión 13 se culmina el ciclo del proyecto integrador incorporando resiliencia transaccional avanzada, persistencia de intentos y fallos en SQLite, clasificación de errores en la sincronización, observabilidad de estados en la interfaz de usuario, gestión nativa de permisos en Android con tres estados y arquitectura de telemetría desacoplada con adaptadores.
+
+### Paso 1 — Recorrido del Flujo y Tabla de Huecos
+
+Tras auditar exhaustivamente el comportamiento del sistema a través de los ocho momentos críticos del flujo de usuario, se identificaron y categorizaron los siguientes hallazgos:
+
+| ID | Momento | Hallazgo | Gravedad | Decisión | Estado | Evidencia |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **H01** | 1. Primera apertura sin sesión | La aplicación inicia en estado no autenticado y navega al Login. No existe indicador previo de estado de conectividad en el formulario de acceso antes de intentar autenticar. | Baja | Posponer a S14 | Verificado | `LoginScreen` muestra formulario limpio sin advertencias de red |
+| **H02** | 2. Login incorrecto y login sin conexión | Con credenciales inválidas el servidor responde 401; sin conexión Ktor captura `IOException` y presenta mensaje de error sin permitir acceso a nuevos usuarios offline (política correcta de seguridad). | Baja | Descartar con justificación | Verificado | `AuthRepositorioRest` captura `ErrorApi.SinConexion` y `ErrorApi.NoAutorizado` |
+| **H03** | 3. Listado local vacío | Al iniciar sesión con catálogo vacío o fallo inicial de carga remota, se visualiza estado vacío sin acceso rápido a reintento desde el cuerpo central. | Media | Cerrar en S13 | Resuelto en S13 | `ProductoScreen` provee acción de sincronización manual en cabecera y estado vacío |
+| **H04** | 4. Creación en modo avión | Al crear un producto sin red, se guarda con ID negativo (-1) y `pendiente = 1`, pero la tabla no almacena intentos, último error ni fecha de reintento, generando ciclos ciegos de reenvío. | Alta | Cerrar en S13 | Resuelto en S13 | **Prioridad 1:** Esquema ampliado con `intentos`, `ultimoError`, `falloPermanente`, `proximoReintentoEpochMillis` y `claveIdempotencia` |
+| **H05** | 5. Reconexión y sincronización | Durante la subida de pendientes, cualquier fallo transitorio (503/timeout) cancela todo el lote sin backoff exponencial ni espera progresiva con tope de 16s. | Alta | Cerrar en S13 | Resuelto en S13 | **Prioridad 2:** Subida resiliente por fila con `ResultadoEnvio.Transitorio`, reintentos limitados (MAX 5) y espera progresiva |
+| **H06** | 6. Validación del servidor | Errores 400 (validación) o 409 (conflicto) relanzan excepción deteniendo el lote y dejando la fila para reenvío infinito en lugar de marcar fallo permanente y excluirlo de sync automática. | Alta | Cerrar en S13 | Resuelto en S13 | **Prioridad 3:** Clasificación en `ResultadoEnvio.Permanente`, exclusión de sync automática y acción manual de reintento |
+| **H07** | 7. Token vencido durante un formulario | Al vencer el JWT (3600s), si el cliente intenta sincronizar recibe 401. Debe invalidarse la sesión de forma controlada sin perder los registros pendientes locales en SQLite. | Media | Cerrar en S13 | Resuelto en S13 | `ProductoRepositorioOffline` detecta 401, detiene subida y preserva pendientes locales para el reingreso |
+| **H08** | 8. Logout y cambio de usuario | El cierre de sesión purga `AlmacenSeguro` y la caché Ktor; los datos SQLite persisten pero la UI debe refrescar de inmediato privilegios acordes al nuevo rol. | Baja | Posponer a S14 | Verificado | `AuthViewModel.cerrarSesion` limpia estado reactivo y almacén |
+
+#### Tres Prioridades Seleccionadas para S13:
+1. **Prioridad 1 (H04 - Paso 2):** Persistencia de intentos, último error y estado de fallo permanente en SQLDelight mediante migración `2.sqm`.
+2. **Prioridad 2 (H05 - Paso 3):** Clasificación de fallos transitorios vs permanentes y limitación de reintentos por fila con backoff exponencial progresivo (tope de 16s) y protección de sesión.
+3. **Prioridad 3 (H06/H04 - Paso 4):** Visibilidad reactiva del estado de sincronización por fila (pendientes vs fallidas), contadores en pantalla y acción de reintento manual autorizado.
