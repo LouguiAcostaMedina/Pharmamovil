@@ -308,3 +308,17 @@ Se revisó la tabla de huecos de la Sesión 13, clasificando el estado definitiv
 
 #### Declaración de Congelación de Alcance:
 Queda formalmente **CONGELADO** el alcance funcional y técnico del producto: no se añadirán nuevas librerías, dependencias, pantallas, migraciones de esquema ni cambios de arquitectura a partir de este punto, asegurando la reproducibilidad total de los builds finales.
+
+### Paso 2 — Creación del Almacén de Claves de Entrega y Respaldo Seguro
+
+Se preparó y generó el almacén de claves de entrega (keystore) oficial fuera de los directorios de trabajo versionados para prevenir cualquier exposición accidental en Git:
+
+* **Ubicación del Almacén Principal:** `C:\Users\XD\.keystores\pharmamobile\equipo7.jks` (fuera del repositorio).
+* **Copia de Respaldo Segura:** `C:\Users\XD\.keystores\pharmamobile_backup\equipo7.jks` (almacenamiento aislado para recuperación ante desastres).
+* **Parámetros Criptográficos:**
+  - Algoritmo: `RSA` de 2048 bits.
+  - Formato: `JKS` (Java KeyStore).
+  - Periodo de Validez: 10,000 días (cubre el ciclo de vida completo de la aplicación en producción).
+  - Alias de la Clave: `equipo7`.
+  - Distinguised Name (DName): `CN=Lougui Acosta Medina, OU=Ingenieria de Sistemas, O=Universidad Peruana Union, L=Lima, ST=Lima, C=PE`.
+* **Seguridad de Secretos:** Las contraseñas del almacén y de la clave no se exponen en consola, chat ni archivos versionados. Se inyectan localmente mediante `keystore.properties` protegido.
