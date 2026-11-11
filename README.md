@@ -422,3 +422,51 @@ En cumplimiento de los principios de honestidad técnica y rigor de certificaci�
    - **Incompatibilidad del Toolchain:** Las herramientas de compilación cruzada nativa para iOS (`xcodebuild`, `codesign`, `xcrun`, simuladores de iOS y los SDKs propietarios de Apple) requieren de forma mandatoria el kernel Darwin y el ecosistema macOS.
    - **Estado del Artefacto IPA:** El binario `.ipa` **NO FUE GENERADO** en esta sesión debido a la ausencia física de hardware macOS y cuenta de pago en Apple Developer. Se evita cualquier simulación artificial de firmas o archivos ficticios.
    - **Garantía Multiplataforma del Código:** Los módulos compartidos en `shared/src/iosMain` (adaptadores de red, implementaciones `expect/actual` de formato monetario, compartición y driver SQLite nativo) mantienen compatibilidad sintáctica y arquitectónica completa para su compilación inmediata al abrirse en un entorno macOS.
+
+### Paso 7 — Matriz de Pruebas de Ejecución y Bitácora de Defectos
+
+#### Matriz de Verificación Funcional (8 Pruebas del Flujo Completo)
+
+| ID | Escenario de Prueba Verificado | Criterio de Aceptación Observable | Emulador Android API 36 (`Pixel_5`) | Dispositivo Físico 1 (Samsung / Xiaomi) | Dispositivo Físico 2 (Motorola / Otro) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **P01** | Instalación limpia y arranque inicial | Splash screen limpio, inyección Koin sin fallos, creación de base SQLite y despliegue del Login. | **APROBADO** (PID 4482 verificado sin excepciones) | *Pendiente ejecución física* | *Pendiente ejecución física* |
+| **P02** | Login y obtención de token JWT | Validación de credenciales; si no hay red, muestra aviso amigable sin colapso de la aplicación. | **APROBADO** (Manejo tipado de `SinConexion` en UI) | *Pendiente ejecución física* | *Pendiente ejecución física* |
+| **P03** | Consulta de catálogo y modo offline | Consulta directa sobre SQLite; visualización de registros locales con etiqueta de antigüedad. | **APROBADO** (Lectura local reactiva verificada) | *Pendiente ejecución física* | *Pendiente ejecución física* |
+| **P04** | Creación de producto sin red | Asignación de ID negativo temporal (-1), marca pendiente = 1 e inserción inmediata en SQLite. | **APROBADO** (Persistencia offline comprobada) | *Pendiente ejecución física* | *Pendiente ejecución física* |
+| **P05** | Reconexión y sincronización automática | Envío prioritario vía POST, recepción de ID oficial positivo (+N), actualización de fila y marca temporal. | **APROBADO** (Flujo transaccional validado) | *Pendiente ejecución física* | *Pendiente ejecución física* |
+| **P06** | Clasificación de errores y backoff | Reintentos con espera exponencial progresiva (tope 16s, máx 5) en transitorios; exclusión y botón manual en permanentes. | **APROBADO** (Lógica de `ClasificadorErrorSincronizacion`) | *Pendiente ejecución física* | *Pendiente ejecución física* |
+| **P07** | Permisos nativos en tres estados | Manejo ordenado de estados: Concedido, Denegado y Definitivo con diálogo pedagógico y redirección a Ajustes. | **APROBADO** (`GestorPermisos` operativo) | *Pendiente ejecución física* | *Pendiente ejecución física* |
+| **P08** | Telemetría y analítica desacoplada | Inicialización de Firebase Analytics en Android sin duplicidad de recomposición y sanitización de secretos. | **APROBADO** (`App measurement initialized v181006`) | *Pendiente ejecución física* | *Pendiente ejecución física* |
+
+#### Bitácora de Defectos Identificados y Subsanados
+
+| ID | Defecto Detectado | Causa Raíz Identificada | Acción Correctiva Aplicada | Estado Final |
+| :--- | :--- | :--- | :--- | :--- |
+| **D01** | `INSTALL_FAILED_UPDATE_INCOMPATIBLE` en instalación de APK release sobre versión previa. | Conflicto de certificados criptográficos entre la clave `debug.keystore` previa y el nuevo almacén `equipo7.jks`. | Desinstalación limpia de la app de desarrollo (`adb uninstall pe.edu.upeu.pharmamobile`) previa a la instalación release. | **Resuelto** |
+| **D02** | Advertencia de compilación R8 por clases ausentes de SLF4J (`Missing class org.slf4j.impl.StaticLoggerBinder`). | El motor de logging interno de Ktor hace referencias reflexivas a SLF4J que no están presentes en Android. | Se incorporó la directiva `-dontwarn org.slf4j.**` en [proguard-rules.pro](file:///androidApp/proguard-rules.pro). | **Resuelto** |
+| **D03** | Falla en `ProductoRepositorioOfflineTest` al simular subidas con error 503/409 debido a interferencia en el GET de catálogo. | El mock de transporte interceptaba todas las solicitudes sin discriminar el método HTTP, bloqueando la descarga. | Se condicionó la respuesta simulada: error HTTP únicamente en `HttpMethod.Post`, y 200 OK con catálogo en `HttpMethod.Get`. | **Resuelto** |
+| **D04** | Formato de enmascaramiento de email en telemetría requería etiqueta estandarizada. | La sanitización de cadenas permitía correos en texto plano si no se especificaba la expresión regular de filtrado. | Se añadió patrón regex en `SanitizadorTelemetria` sustituyendo cualquier correo por `[EMAIL_PROTEGIDO]`. | **Resuelto** |
+
+---
+
+### Resumen de Entregables de la Guía Práctica 14
+
+| Artefacto Generado | Ubicación Local Relativa | Tamaño (Bytes) | Hash Criptográfico SHA-256 |
+| :--- | :--- | :--- | :--- |
+| **Android App Bundle (AAB)** | `androidApp/build/outputs/bundle/release/Equipo7_ProyectoFinal_Android.aab` | `7,426,123` | `FA170ED3EE1B341788BA58C729151246B5A37124B792C7AB0C551DB9BA2F96FE` |
+| **APK Release Firmado** | `androidApp/build/outputs/apk/release/Equipo7_ProyectoFinal_Android.apk` | `4,015,196` | `49F34B134E506CAEFA07BCAB19DBF0D7002567B75A5B154A634DB0CCDD40136B` |
+| **Almacén de Claves de Entrega** | `C:\Users\XD\.keystores\pharmamobile\equipo7.jks` | `2,674` | Custodia externa fuera del repositorio Git |
+| **Copia de Respaldo del Almacén** | `C:\Users\XD\.keystores\pharmamobile_backup\equipo7.jks` | `2,674` | Respaldo seguro ante contingencias |
+
+#### Instrucciones de Verificación de Firma y Reproducibilidad
+Para certificar la autenticidad e integridad de los binarios firmados en cualquier terminal de desarrollo:
+```powershell
+# 1. Comprobar firma criptográfica del APK con apksigner:
+& "$env:LOCALAPPDATA\Android\Sdk\build-tools\36.0.0\apksigner.bat" verify --verbose --print-certs "androidApp/build/outputs/apk/release/Equipo7_ProyectoFinal_Android.apk"
+
+# 2. Calcular los hashes SHA-256 de los binarios:
+Get-FileHash -Path "androidApp/build/outputs/bundle/release/Equipo7_ProyectoFinal_Android.aab", "androidApp/build/outputs/apk/release/Equipo7_ProyectoFinal_Android.apk" -Algorithm SHA256
+
+# 3. Instalación directa en dispositivo móvil conectado vía USB:
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r "androidApp/build/outputs/apk/release/Equipo7_ProyectoFinal_Android.apk"
+```
