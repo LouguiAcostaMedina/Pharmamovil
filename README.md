@@ -280,3 +280,31 @@ Tras auditar exhaustivamente el comportamiento del sistema a través de los ocho
 1. **Prioridad 1 (H04 - Paso 2):** Persistencia de intentos, último error y estado de fallo permanente en SQLDelight mediante migración `2.sqm`.
 2. **Prioridad 2 (H05 - Paso 3):** Clasificación de fallos transitorios vs permanentes y limitación de reintentos por fila con backoff exponencial progresivo (tope de 16s) y protección de sesión.
 3. **Prioridad 3 (H06/H04 - Paso 4):** Visibilidad reactiva del estado de sincronización por fila (pendientes vs fallidas), contadores en pantalla y acción de reintento manual autorizado.
+
+---
+
+## Actividad Práctica S14: Mejoras Finales, Firma y Generación de Builds AAB e IPA
+
+En la Sesión 14 se formaliza la salida del proyecto hacia producción: cierre de la ficha de integración S13, congelación definitiva del alcance, configuración de almacén de claves de entrega (keystore) fuera del repositorio, lectura segura de credenciales mediante `keystore.properties`, minificación R8/ProGuard preservando serialización y dependencias Koin, empaquetado de artefactos AAB y APK release, verificación oficial con `apksigner`, documentación de limitaciones de entorno iOS y matriz de ejecución en dispositivos móviles.
+
+### Paso 1 — Cierre de la Ficha de Integración S13 y Congelación del Alcance
+
+Se revisó la tabla de huecos de la Sesión 13, clasificando el estado definitivo de cada momento del recorrido:
+
+| ID | Momento Auditado | Decisión Original | Estado de Cierre S14 | Justificación y Evidencia Observable |
+| :--- | :--- | :--- | :--- | :--- |
+| **H01** | 1. Primera apertura sin sesión | Posponer a S14 | **Cerrado** | Formulario de Login validado. Si no hay red, Ktor reporta mensaje claro de verificación de conexión sin excepciones no controladas. |
+| **H02** | 2. Login incorrecto y sin conexión | Descartar con justificación | **Cerrado** | Se distingue con exactitud: credenciales inválidas (HTTP 401) vs desconexión de red (`ErrorApi.SinConexion`), sin admitir sesiones espurias offline. |
+| **H03** | 3. Listado local vacío | Cerrar en S13 | **Cerrado** | Pantalla con estado vacío informativo y botón de sincronización manual operativa; no se bloquea la navegación. |
+| **H04** | 4. Creación en modo avión | Cerrar en S13 | **Cerrado** | Esquema SQLDelight ampliado (`2.sqm`) con `intentos`, `ultimoError`, `falloPermanente`, `proximoReintentoEpochMillis` y `claveIdempotencia`. |
+| **H05** | 5. Reconexión y sincronización | Cerrar en S13 | **Cerrado** | Algoritmo de reintentos por fila con backoff exponencial (1s, 2s, 4s, 8s, 16s tope), límite de 5 intentos y preservación transaccional. |
+| **H06** | 6. Validación del servidor | Cerrar en S13 | **Cerrado** | Errores 400 y 409 clasificados como `ResultadoEnvio.Permanente`; se excluyen del reenvío automático y ofrecen botón de reintento manual en UI. |
+| **H07** | 7. Token vencido en formulario | Cerrar en S13 | **Cerrado** | Detección de HTTP 401 invalida la sesión en curso pero preserva intactas las filas locales pendientes en SQLite para reintento tras reautenticación. |
+| **H08** | 8. Logout y cambio de usuario | Posponer a S14 | **Cerrado** | Cierre de sesión purga llaves JWT en `AlmacenSeguro` y reinicia estado reactivo en UI. |
+
+#### Limitaciones Declaradas:
+1. **L01 — Ejecución física en dos teléfonos sin host conectado:** El recorrido fue verificado funcionalmente en emulador Android API 36 (`Pixel_5`), confirmando la ausencia de excepciones y arranque limpio. La instalación física en dos terminales de marcas distintas requiere transferencia manual ad hoc del APK de entrega.
+2. **L02 — Compilación y archivo IPA en iOS:** Al ejecutarse el entorno de desarrollo sobre host Windows 11 sin estación macOS ni Xcode con cuenta Apple Developer, se declara la limitación técnica de empaquetado IPA, preservando la compatibilidad de código en `iosMain`.
+
+#### Declaración de Congelación de Alcance:
+Queda formalmente **CONGELADO** el alcance funcional y técnico del producto: no se añadirán nuevas librerías, dependencias, pantallas, migraciones de esquema ni cambios de arquitectura a partir de este punto, asegurando la reproducibilidad total de los builds finales.
