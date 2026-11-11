@@ -46,6 +46,8 @@
 -keep class io.ktor.** { *; }
 -dontwarn io.ktor.**
 -dontwarn okhttp3.**
+-dontwarn org.slf4j.**
+-dontwarn org.slf4j.impl.StaticLoggerBinder
 
 # ------------------------------------------------------------------------------
 # 4. Base de Datos Local y Transaccionalidad (SQLDelight & SQLite)

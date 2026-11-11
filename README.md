@@ -347,3 +347,32 @@ keyPassword=********
   - `versionCode`: `1`.
   - `versionName`: `1.0.0`.
 * **Optimización R8 / ProGuard (`proguard-rules.pro`):** Se activó `isMinifyEnabled = true` preservando metadatos para Kotlin Serialization (`@Serializable`, `@SerialName`), inyección de dependencias Koin, llamadas de red Ktor y persistencia SQLDelight.
+
+### Paso 4 — Generación de Builds Release (AAB y APK) y Verificación Criptográfica
+
+Se ejecutaron las tareas de compilación y empaquetado de producción en Gradle (`bundleRelease` y `assembleRelease`), generando los artefactos oficiales firmados con el almacén `equipo7.jks`:
+
+1. **Android App Bundle (AAB):**
+   - **Ruta de Generación:** `androidApp/build/outputs/bundle/release/androidApp-release.aab`
+   - **Nombre de Entrega:** `Equipo7_ProyectoFinal_Android.aab`
+   - **Tamaño en Bytes:** `7,426,123` bytes (~7.08 MB)
+   - **Límite de Consola Google Play:** Cumple holgadamente con la restricción máxima de 150 MB.
+   - **Hash SHA-256:** `FA170ED3EE1B341788BA58C729151246B5A37124B792C7AB0C551DB9BA2F96FE`
+
+2. **Android Package de Prueba Local (APK Release):**
+   - **Ruta de Generación:** `androidApp/build/outputs/apk/release/androidApp-release.apk`
+   - **Nombre de Entrega:** `Equipo7_ProyectoFinal_Android.apk`
+   - **Tamaño en Bytes:** `4,015,196` bytes (~3.83 MB)
+   - **Hash SHA-256:** `49F34B134E506CAEFA07BCAB19DBF0D7002567B75A5B154A634DB0CCDD40136B`
+
+3. **Verificación Oficial de Firma con `apksigner`:**
+   - **Herramienta:** `build-tools/36.0.0/apksigner.bat verify --verbose --print-certs`
+   - **Resultado Global:** `Verifies: true`
+   - **Esquema de Firma:** `Verified using v2 scheme (APK Signature Scheme v2): true`
+   - **Identidad del Firmante (DN):** `CN=Lougui Acosta Medina, OU=Ingenieria de Sistemas, O=Universidad Peruana Union, L=Lima, ST=Lima, C=PE`
+   - **Alias de la Clave:** `equipo7`
+   - **Algoritmo y Tamaño de Clave:** `RSA` 2048 bits
+   - **Huella Digital SHA-256 del Certificado:** `2b04aade7193e0d4a2826570d91b058884c62bb306f9357b88e2cc8ea02fdaf4`
+   - **Huella Digital SHA-1 del Certificado:** `7b81ae44ade44039d2d262a985bb05c4665b8ad8`
+   - **Huella Digital MD5 del Certificado:** `4ac990313fa44cad32dc9592cdbee126`
+   - **Conclusión de Correspondencia:** Ambos artefactos (AAB y APK) fueron firmados con la misma clave privada y el mismo certificado digital, garantizando la total reproducibilidad e instalabilidad directa sin necesidad de cuenta de desarrollador ni bundletool.
