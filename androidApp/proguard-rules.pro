@@ -1,21 +1,63 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ==============================================================================
+# Reglas de Minificación y Optimización R8 / ProGuard para PharmaMobile (Release)
+# ==============================================================================
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Preservar atributos esenciales de reflexión y stacktraces legibles
+-keepattributes *Annotation*, InnerClasses, Signature, EnclosingMethod, SourceFile, LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# ------------------------------------------------------------------------------
+# 1. Kotlinx Serialization (Modelos de Transporte y Deserialización JSON)
+# ------------------------------------------------------------------------------
+-keepclassmembers class * {
+    @kotlinx.serialization.Serializable <fields>;
+}
+-keepclassmembers class * {
+    @kotlinx.serialization.SerialName <fields>;
+}
+-keepclasseswithmembers class * {
+    @kotlinx.serialization.Serializable <init>(...);
+}
+-keepclassmembers class * {
+    *** Companion;
+}
+-keepnames class kotlinx.serialization.internal.** { *; }
+-keepclassmembers class **$$serializer {
+    public static final **$$serializer INSTANCE;
+    public static final kotlinx.serialization.KSerializer *;
+}
+-keep,allowobfuscation,allowshrinking class * {
+    @kotlinx.serialization.Serializable class *;
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# ------------------------------------------------------------------------------
+# 2. Inyección de Dependencias (Koin)
+# ------------------------------------------------------------------------------
+-keep class io.insert.koin.** { *; }
+-keep class * extends androidx.lifecycle.ViewModel { *; }
+-keep class * implements org.koin.core.module.Module { *; }
+-keepclassmembers class * extends androidx.lifecycle.ViewModel {
+    <init>(...);
+}
+
+# ------------------------------------------------------------------------------
+# 3. Cliente HTTP y Red (Ktor & OkHttp)
+# ------------------------------------------------------------------------------
+-keep class io.ktor.** { *; }
+-dontwarn io.ktor.**
+-dontwarn okhttp3.**
+
+# ------------------------------------------------------------------------------
+# 4. Base de Datos Local y Transaccionalidad (SQLDelight & SQLite)
+# ------------------------------------------------------------------------------
+-keep class app.cash.sqldelight.** { *; }
+-keep class pe.edu.upeu.pharmamobile.db.** { *; }
+-keep class androidx.sqlite.** { *; }
+
+# ------------------------------------------------------------------------------
+# 5. Modelos de Dominio y Data Transfer Objects (DTOs)
+# ------------------------------------------------------------------------------
+-keep class pe.edu.upeu.pharmamobile.data.model.** { *; }
+-keep class pe.edu.upeu.pharmamobile.domain.model.** { *; }
+-keep class pe.edu.upeu.pharmamobile.domain.permission.** { *; }
+-keep class pe.edu.upeu.pharmamobile.domain.telemetria.** { *; }

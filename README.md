@@ -322,3 +322,28 @@ Se preparó y generó el almacén de claves de entrega (keystore) oficial fuera 
   - Alias de la Clave: `equipo7`.
   - Distinguised Name (DName): `CN=Lougui Acosta Medina, OU=Ingenieria de Sistemas, O=Universidad Peruana Union, L=Lima, ST=Lima, C=PE`.
 * **Seguridad de Secretos:** Las contraseñas del almacén y de la clave no se exponen en consola, chat ni archivos versionados. Se inyectan localmente mediante `keystore.properties` protegido.
+
+### Paso 3 — Configuración de la Firma de Entrega sin Exposición de Secretos
+
+La configuración de firma se desacopló del control de versiones mediante el archivo local `keystore.properties` en la raíz del cliente, protegido por `.gitignore`:
+
+```properties
+# keystore.properties (en la raiz del proyecto cliente, NUNCA en Git)
+storeFile=C:/Users/XD/.keystores/pharmamobile/equipo7.jks
+storePassword=********
+keyAlias=equipo7
+keyPassword=********
+```
+
+* **Reglas en `.gitignore`:**
+  - `keystore.properties`
+  - `*.jks`
+  - `*.keystore`
+  - `*.aab`
+  - `*.apks`
+* **Comportamiento Seguro ante Ausencia:** El archivo `androidApp/build.gradle.kts` evalúa la existencia mediante `if (f.exists())`. La compilación `debug` abre y compila libremente en cualquier clon limpio sin exigir credenciales. Únicamente las tareas de `release` exigen una configuración válida reportando un error comprensible si faltan las llaves.
+* **Metadatos de Versión:**
+  - `applicationId`: `pe.edu.upeu.pharmamobile` (alineado con `google-services.json` y consola Firebase).
+  - `versionCode`: `1`.
+  - `versionName`: `1.0.0`.
+* **Optimización R8 / ProGuard (`proguard-rules.pro`):** Se activó `isMinifyEnabled = true` preservando metadatos para Kotlin Serialization (`@Serializable`, `@SerialName`), inyección de dependencias Koin, llamadas de red Ktor y persistencia SQLDelight.

@@ -20,5 +20,11 @@ node_modules/
 
 # Firebase
 google-services.json
+
+# Firma y llaves de entrega
+keystore.properties
 *.keystore
 *.jks
+*.aab
+*.apks
+
