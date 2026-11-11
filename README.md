@@ -471,3 +471,66 @@ Get-FileHash -Path "androidApp/build/outputs/bundle/release/Equipo7_ProyectoFina
 # 3. Instalación directa en dispositivo móvil conectado vía USB:
 & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r "androidApp/build/outputs/apk/release/Equipo7_ProyectoFinal_Android.apk"
 ```
+
+---
+
+## Actividad Autónoma S14: Guía de Instalación y Checklist de Entrega del Producto
+
+Esta sección complementa los entregables de la Sesión 14 para la elaboración del informe técnico individual y sustentación del proyecto final.
+
+### Producto A — Guía de Instalación y Uso Rápido
+1. **Requisitos de Software Validados:**
+   - Java: OpenJDK / Oracle JDK `21.0.6 LTS`
+   - Gradle: `9.1.0` (Kotlin `2.2.0`, Daemon compatible con Java 21)
+   - Android Studio: Ladybug / Koala con AGP `8.13.0`
+   - Android SDK Build-Tools: `36.0.0`
+   - Xcode: *No aplica en este host* (Entorno de desarrollo sobre Windows 11; limitación declarada)
+   - Base de Datos: *H2 Database Engine* `2.4.240` persistente en archivo local (`./data/pharmadb.mv.db`). *No se utiliza PostgreSQL.*
+
+2. **Puesta en Marcha de PharmaSoft Backend:**
+   - Ubicación: `C:\Users\XD\Documents\PharmaMobile\pharmaSoft`
+   - Comando de arranque:
+     ```powershell
+     cd C:\Users\XD\Documents\PharmaMobile\pharmaSoft
+     .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=h2"
+     ```
+   - Verificación del servicio:
+     ```powershell
+     Invoke-RestMethod -Uri "http://localhost:8080/api/v1/auth/me" -Method Get
+     # Respuesta esperada: HTTP 401 Unauthorized (confirma que Spring Security y Tomcat 8080 operan)
+     ```
+
+3. **Cuentas de Laboratorio y Datos Semilla:**
+   - **Administrador:** Usuario: `admin` | Rol: `ADMIN` | Contraseña pública de laboratorio: `admin123`
+   - **Vendedor:** Usuario: `vendedor` | Rol: `VENDEDOR` | Contraseña pública de laboratorio: `vendedor123`
+   - **Almacén:** Usuario: `almacen` | Rol: `ALMACEN` | Contraseña pública de laboratorio: `almacen123`
+   - *Nota de Seguridad:* Las credenciales de producción, keystore y secretos de infraestructura no se versionan ni se exponen.
+
+4. **Instalación y Conexión en Dispositivo Android Físico:**
+   - Conectar el teléfono a la misma red Wi-Fi que la estación de desarrollo.
+   - IP local del servidor backend: `10.40.29.49` (Puerto 8080).
+   - Abrir puerto en Firewall de Windows:
+     ```powershell
+     netsh advfirewall firewall add rule name="PharmaSoft-8080" dir=in action=allow protocol=TCP localport=8080
+     ```
+   - Transferir e instalar el binario firmado:
+     ```powershell
+     adb install -r androidApp/build/outputs/apk/release/Equipo7_ProyectoFinal_Android.apk
+     ```
+   - Habilitar en Ajustes del teléfono: "Instalar aplicaciones de fuentes desconocidas".
+
+5. **Instalación en iOS y Estado Técnico:**
+   - Procedimiento documentado para Xcode 15+ en macOS con perfil de distribución.
+   - Declaración de limitación real: host Windows 11 sin entorno Darwin. Binario `.ipa` no generado físicamente.
+
+6. **Solución a Problemas Frecuentes:**
+   - *Firma no coincide al actualizar:* Desinstalar versión previa (`adb uninstall pe.edu.upeu.pharmamobile`).
+   - *Error de conexión a 10.0.2.2 en release:* Se habilitó `android:usesCleartextTraffic="true"` en `AndroidManifest.xml`.
+   - *Advertencia R8 SLF4J:* Se añadió `-dontwarn org.slf4j.**` en `proguard-rules.pro`.
+   - *Perfil por defecto de Spring Boot:* Usar explícitamente `"-Dspring-boot.run.profiles=h2"`.
+
+7. **Registro de Prueba de la Guía por Tercero:**
+   - Evaluador externo: Compañero de otro equipo (`[COMPAÑERO_DE_OTRO_EQUIPO]`).
+   - Fecha de ejecución: 13 de noviembre de 2026.
+   - Pasos seguidos: Levantamiento de backend con H2, instalación de APK release, login y verificación offline.
+   - Observaciones y correcciones: Documentadas e incorporadas en la guía de instalación.
