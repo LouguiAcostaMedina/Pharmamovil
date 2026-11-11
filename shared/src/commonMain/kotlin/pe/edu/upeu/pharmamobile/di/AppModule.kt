@@ -16,8 +16,12 @@ import pe.edu.upeu.pharmamobile.data.network.crearHttpClient
 import pe.edu.upeu.pharmamobile.data.repository.AuthRepositorioRest
 import pe.edu.upeu.pharmamobile.data.repository.ProductoRepositorioOffline
 import pe.edu.upeu.pharmamobile.db.PharmaDb
+import pe.edu.upeu.pharmamobile.domain.permission.GestorPermisos
+import pe.edu.upeu.pharmamobile.domain.platform.Compartidor
+import pe.edu.upeu.pharmamobile.domain.platform.NotificadorSincronizacion
 import pe.edu.upeu.pharmamobile.domain.repository.AuthRepository
 import pe.edu.upeu.pharmamobile.domain.repository.ProductoRepository
+import pe.edu.upeu.pharmamobile.domain.telemetria.Telemetria
 import pe.edu.upeu.pharmamobile.domain.usecase.*
 import pe.edu.upeu.pharmamobile.presentation.auth.AuthViewModel
 import pe.edu.upeu.pharmamobile.presentation.producto.ProductoViewModel

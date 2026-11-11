@@ -52,6 +52,7 @@ kotlin {
             implementation(libs.koin.android)
             implementation(libs.androidx.security.crypto)
             implementation(libs.sqldelight.android)
+            implementation("com.google.firebase:firebase-analytics:22.1.2")
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
@@ -112,4 +113,5 @@ compose.desktop {
         mainClass = "pe.edu.upeu.pharmamobile.MainKt"
         jvmArgs("-Dskiko.renderApi=OPENGL")
     }
-}
+}
+
