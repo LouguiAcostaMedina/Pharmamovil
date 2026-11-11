@@ -355,15 +355,15 @@ Se ejecutaron las tareas de compilación y empaquetado de producción en Gradle 
 1. **Android App Bundle (AAB):**
    - **Ruta de Generación:** `androidApp/build/outputs/bundle/release/androidApp-release.aab`
    - **Nombre de Entrega:** `Equipo7_ProyectoFinal_Android.aab`
-   - **Tamaño en Bytes:** `7,426,123` bytes (~7.08 MB)
+   - **Tamaño en Bytes:** `7,426,154` bytes (~7.08 MB)
    - **Límite de Consola Google Play:** Cumple holgadamente con la restricción máxima de 150 MB.
-   - **Hash SHA-256:** `FA170ED3EE1B341788BA58C729151246B5A37124B792C7AB0C551DB9BA2F96FE`
+   - **Hash SHA-256:** `A0DBCEE00D16F018D6351AFBD6C12D8C5273D89EACD09A86CEFD214AF060A48A`
 
 2. **Android Package de Prueba Local (APK Release):**
    - **Ruta de Generación:** `androidApp/build/outputs/apk/release/androidApp-release.apk`
    - **Nombre de Entrega:** `Equipo7_ProyectoFinal_Android.apk`
-   - **Tamaño en Bytes:** `4,015,196` bytes (~3.83 MB)
-   - **Hash SHA-256:** `49F34B134E506CAEFA07BCAB19DBF0D7002567B75A5B154A634DB0CCDD40136B`
+   - **Tamaño en Bytes:** `4,015,220` bytes (~3.83 MB)
+   - **Hash SHA-256:** `1CD9DB241790EEEB65B017CA087FE1A6486A2C3A9CAC639785FD10D7397743A9`
 
 3. **Verificación Oficial de Firma con `apksigner`:**
    - **Herramienta:** `build-tools/36.0.0/apksigner.bat verify --verbose --print-certs`
@@ -446,6 +446,7 @@ En cumplimiento de los principios de honestidad técnica y rigor de certificaci�
 | **D02** | Advertencia de compilación R8 por clases ausentes de SLF4J (`Missing class org.slf4j.impl.StaticLoggerBinder`). | El motor de logging interno de Ktor hace referencias reflexivas a SLF4J que no están presentes en Android. | Se incorporó la directiva `-dontwarn org.slf4j.**` en [proguard-rules.pro](file:///androidApp/proguard-rules.pro). | **Resuelto** |
 | **D03** | Falla en `ProductoRepositorioOfflineTest` al simular subidas con error 503/409 debido a interferencia en el GET de catálogo. | El mock de transporte interceptaba todas las solicitudes sin discriminar el método HTTP, bloqueando la descarga. | Se condicionó la respuesta simulada: error HTTP únicamente en `HttpMethod.Post`, y 200 OK con catálogo en `HttpMethod.Get`. | **Resuelto** |
 | **D04** | Formato de enmascaramiento de email en telemetría requería etiqueta estandarizada. | La sanitización de cadenas permitía correos en texto plano si no se especificaba la expresión regular de filtrado. | Se añadió patrón regex en `SanitizadorTelemetria` sustituyendo cualquier correo por `[EMAIL_PROTEGIDO]`. | **Resuelto** |
+| **D05** | Bloqueo de tráfico HTTP no cifrado hacia `10.0.2.2:8080` en build release por política de seguridad de Android 9+. | En compilaciones release, Android bloquea el tráfico HTTP cleartext por defecto a menos que se declare explícitamente en el manifiesto. | Se agregó el atributo `android:usesCleartextTraffic="true"` en la etiqueta `<application>` de `AndroidManifest.xml`. | **Resuelto** |
 
 ---
 
@@ -453,8 +454,8 @@ En cumplimiento de los principios de honestidad técnica y rigor de certificaci�
 
 | Artefacto Generado | Ubicación Local Relativa | Tamaño (Bytes) | Hash Criptográfico SHA-256 |
 | :--- | :--- | :--- | :--- |
-| **Android App Bundle (AAB)** | `androidApp/build/outputs/bundle/release/Equipo7_ProyectoFinal_Android.aab` | `7,426,123` | `FA170ED3EE1B341788BA58C729151246B5A37124B792C7AB0C551DB9BA2F96FE` |
-| **APK Release Firmado** | `androidApp/build/outputs/apk/release/Equipo7_ProyectoFinal_Android.apk` | `4,015,196` | `49F34B134E506CAEFA07BCAB19DBF0D7002567B75A5B154A634DB0CCDD40136B` |
+| **Android App Bundle (AAB)** | `androidApp/build/outputs/bundle/release/Equipo7_ProyectoFinal_Android.aab` | `7,426,154` | `A0DBCEE00D16F018D6351AFBD6C12D8C5273D89EACD09A86CEFD214AF060A48A` |
+| **APK Release Firmado** | `androidApp/build/outputs/apk/release/Equipo7_ProyectoFinal_Android.apk` | `4,015,220` | `1CD9DB241790EEEB65B017CA087FE1A6486A2C3A9CAC639785FD10D7397743A9` |
 | **Almacén de Claves de Entrega** | `C:\Users\XD\.keystores\pharmamobile\equipo7.jks` | `2,674` | Custodia externa fuera del repositorio Git |
 | **Copia de Respaldo del Almacén** | `C:\Users\XD\.keystores\pharmamobile_backup\equipo7.jks` | `2,674` | Respaldo seguro ante contingencias |
 
