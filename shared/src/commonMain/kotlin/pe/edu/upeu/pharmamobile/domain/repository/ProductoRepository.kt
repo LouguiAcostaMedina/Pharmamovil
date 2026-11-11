@@ -1,6 +1,7 @@
 package pe.edu.upeu.pharmamobile.domain.repository
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import pe.edu.upeu.pharmamobile.domain.model.Producto
 
 interface ProductoRepository {
@@ -30,4 +31,13 @@ interface ProductoRepository {
 
     /** Descarga el catálogo remoto e incorpora los productos en la base local sin tocar los pendientes */
     suspend fun descargarCatalogo() {}
+
+    /** Observa en tiempo real la cantidad de pendientes (Pair.first) y fallidas (Pair.second) */
+    fun observarContadores(): Flow<Pair<Long, Long>> = flowOf(Pair(0L, 0L))
+
+    /** Rearma manualmente una fila fallida para que vuelva a intentar sincronizarse */
+    suspend fun reintentarFila(id: Long) {}
+
+    /** Rearma manualmente todas las filas fallidas */
+    suspend fun reintentarTodasLasFallidas() {}
 }
