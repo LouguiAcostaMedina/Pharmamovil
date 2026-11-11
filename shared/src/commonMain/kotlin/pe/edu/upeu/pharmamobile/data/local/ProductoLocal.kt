@@ -2,13 +2,16 @@ package pe.edu.upeu.pharmamobile.data.local
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import app.cash.sqldelight.coroutines.mapToOne
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import pe.edu.upeu.pharmamobile.db.PharmaDb
 import pe.edu.upeu.pharmamobile.db.Producto as ProductoEntity
 import pe.edu.upeu.pharmamobile.domain.model.Producto
+import pe.edu.upeu.pharmamobile.generarClaveIdempotencia
 
 class ProductoLocal(
     base: PharmaDb,
@@ -39,8 +42,25 @@ class ProductoLocal(
         consultas.listarPendientes().executeAsList()
             .map { it.aDominio() }
 
+    fun pendientesParaSincronizacion(ahoraMillis: Long): List<Producto> =
+        consultas.listarPendientesParaSincronizacion(ahoraMillis).executeAsList()
+            .map { it.aDominio() }
+
+    fun fallidas(): List<Producto> =
+        consultas.listarFallidas().executeAsList()
+            .map { it.aDominio() }
+
     fun contarPendientes(): Long =
         consultas.contarPendientes().executeAsOne()
+
+    fun contarFallidas(): Long =
+        consultas.contarFallidas().executeAsOne()
+
+    fun observarContadores(): Flow<Pair<Long, Long>> {
+        val flowPendientes = consultas.contarPendientes().asFlow().mapToOne(dispatcher)
+        val flowFallidas = consultas.contarFallidas().asFlow().mapToOne(dispatcher)
+        return flowPendientes.combine(flowFallidas) { p, f -> Pair(p, f) }
+    }
 
     fun obtenerPorId(id: Long): Producto? =
         consultas.obtenerPorId(id).executeAsOneOrNull()?.aDominio()
@@ -49,6 +69,7 @@ class ProductoLocal(
         return consultas.transactionWithResult {
             val menor = consultas.siguienteIdLocal().executeAsOne()
             val nuevoId = minOf(menor, 0L) - 1L
+            val clave = producto.claveIdempotencia ?: generarClaveIdempotencia()
             consultas.insertar(
                 id = nuevoId,
                 nombre = producto.nombre,
@@ -59,9 +80,22 @@ class ProductoLocal(
                 imagen = producto.imagen,
                 categoria = producto.categoria,
                 categoriaId = producto.categoriaId ?: 1L,
-                pendiente = 1L
+                pendiente = 1L,
+                intentos = 0L,
+                ultimoError = null,
+                falloPermanente = 0L,
+                proximoReintentoEpochMillis = 0L,
+                claveIdempotencia = clave
             )
-            producto.copy(id = nuevoId, pendiente = true)
+            producto.copy(
+                id = nuevoId,
+                pendiente = true,
+                intentos = 0,
+                ultimoError = null,
+                falloPermanente = false,
+                proximoReintentoEpochMillis = 0L,
+                claveIdempotencia = clave
+            )
         }
     }
 
@@ -79,7 +113,12 @@ class ProductoLocal(
                     imagen = p.imagen,
                     categoria = p.categoria,
                     categoriaId = p.categoriaId ?: 1L,
-                    pendiente = 0L
+                    pendiente = 0L,
+                    intentos = 0L,
+                    ultimoError = null,
+                    falloPermanente = 0L,
+                    proximoReintentoEpochMillis = 0L,
+                    claveIdempotencia = null
                 )
             }
         }
@@ -98,9 +137,40 @@ class ProductoLocal(
                 imagen = confirmado.imagen,
                 categoria = confirmado.categoria,
                 categoriaId = confirmado.categoriaId ?: 1L,
-                pendiente = 0L
+                pendiente = 0L,
+                intentos = 0L,
+                ultimoError = null,
+                falloPermanente = 0L,
+                proximoReintentoEpochMillis = 0L,
+                claveIdempotencia = null
             )
         }
+    }
+
+    fun registrarFalloTransitorio(id: Long, error: String, proximoReintentoEpochMillis: Long) {
+        consultas.registrarFalloTransitorio(
+            ultimoError = error,
+            proximoReintentoEpochMillis = proximoReintentoEpochMillis,
+            id = id
+        )
+    }
+
+    fun registrarFalloPermanente(id: Long, error: String) {
+        consultas.registrarFalloPermanente(
+            ultimoError = error,
+            id = id
+        )
+    }
+
+    fun rearmarReintentoManual(id: Long) {
+        consultas.rearmarReintentoManual(id)
+    }
+
+    fun actualizarClaveIdempotencia(id: Long, clave: String) {
+        consultas.actualizarClaveIdempotencia(
+            claveIdempotencia = clave,
+            id = id
+        )
     }
 
     fun actualizarLocal(producto: Producto) {
@@ -114,6 +184,11 @@ class ProductoLocal(
             categoria = producto.categoria,
             categoriaId = producto.categoriaId ?: 1L,
             pendiente = if (producto.pendiente) 1L else 0L,
+            intentos = producto.intentos.toLong(),
+            ultimoError = producto.ultimoError,
+            falloPermanente = if (producto.falloPermanente) 1L else 0L,
+            proximoReintentoEpochMillis = producto.proximoReintentoEpochMillis,
+            claveIdempotencia = producto.claveIdempotencia,
             id = producto.id
         )
     }
@@ -132,6 +207,11 @@ class ProductoLocal(
         imagen = imagen,
         categoria = categoria,
         categoriaId = categoriaId,
-        pendiente = pendiente == 1L
+        pendiente = pendiente == 1L,
+        intentos = intentos.toInt(),
+        ultimoError = ultimoError,
+        falloPermanente = falloPermanente == 1L,
+        proximoReintentoEpochMillis = proximoReintentoEpochMillis,
+        claveIdempotencia = claveIdempotencia
     )
 }

@@ -1,0 +1,6 @@
+ALTER TABLE producto ADD COLUMN intentos INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE producto ADD COLUMN ultimoError TEXT;
+ALTER TABLE producto ADD COLUMN falloPermanente INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE producto ADD COLUMN proximoReintentoEpochMillis INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE producto ADD COLUMN claveIdempotencia TEXT;
+

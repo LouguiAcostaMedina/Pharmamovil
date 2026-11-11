@@ -23,6 +23,30 @@ class CreadorDeDriverDesktop : CreadorDeDriver {
                     valor TEXT NOT NULL
                 );
             """.trimIndent(), 0)
+
+            val columnas = driver.executeQuery(null, "PRAGMA table_info(producto);", { cursor ->
+                val lista = mutableListOf<String>()
+                while (cursor.next().value) {
+                    lista.add(cursor.getString(1) ?: "")
+                }
+                app.cash.sqldelight.db.QueryResult.Value(lista)
+            }, 0).value
+
+            if (!columnas.contains("intentos")) {
+                driver.execute(null, "ALTER TABLE producto ADD COLUMN intentos INTEGER NOT NULL DEFAULT 0;", 0)
+            }
+            if (!columnas.contains("ultimoError")) {
+                driver.execute(null, "ALTER TABLE producto ADD COLUMN ultimoError TEXT;", 0)
+            }
+            if (!columnas.contains("falloPermanente")) {
+                driver.execute(null, "ALTER TABLE producto ADD COLUMN falloPermanente INTEGER NOT NULL DEFAULT 0;", 0)
+            }
+            if (!columnas.contains("proximoReintentoEpochMillis")) {
+                driver.execute(null, "ALTER TABLE producto ADD COLUMN proximoReintentoEpochMillis INTEGER NOT NULL DEFAULT 0;", 0)
+            }
+            if (!columnas.contains("claveIdempotencia")) {
+                driver.execute(null, "ALTER TABLE producto ADD COLUMN claveIdempotencia TEXT;", 0)
+            }
         }
         return driver
     }

@@ -10,11 +10,18 @@ data class Producto(
     val imagen: String = "",
     val categoria: String = "",
     val categoriaId: Long? = null,
-    val pendiente: Boolean = false
+    val pendiente: Boolean = false,
+    val intentos: Int = 0,
+    val ultimoError: String? = null,
+    val falloPermanente: Boolean = false,
+    val proximoReintentoEpochMillis: Long = 0L,
+    val claveIdempotencia: String? = null
 ) {
     val requiereReposicion: Boolean get() = stock <= STOCK_MINIMO
+    val esFallida: Boolean get() = pendiente && (falloPermanente || intentos >= MAX_INTENTOS)
 
     companion object {
         const val STOCK_MINIMO = 5
+        const val MAX_INTENTOS = 5
     }
 }
