@@ -13,8 +13,13 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import pe.edu.upeu.pharmamobile.domain.model.ErrorApi
 import pe.edu.upeu.pharmamobile.domain.model.Producto
+import pe.edu.upeu.pharmamobile.domain.permission.EstadoPermiso
+import pe.edu.upeu.pharmamobile.domain.permission.GestorPermisos
+import pe.edu.upeu.pharmamobile.domain.permission.Permiso
 import pe.edu.upeu.pharmamobile.domain.platform.Compartidor
+import pe.edu.upeu.pharmamobile.domain.platform.NotificadorSincronizacion
 import pe.edu.upeu.pharmamobile.domain.repository.ProductoRepository
+import pe.edu.upeu.pharmamobile.domain.telemetria.Telemetria
 import pe.edu.upeu.pharmamobile.domain.usecase.ActualizarProductoUseCase
 import pe.edu.upeu.pharmamobile.domain.usecase.EliminarProductoUseCase
 import pe.edu.upeu.pharmamobile.domain.usecase.ObtenerProductoUseCase
@@ -27,7 +32,19 @@ class ProductoViewModel(
     private val actualizarProductoUseCase: ActualizarProductoUseCase,
     private val eliminarProductoUseCase: EliminarProductoUseCase,
     private val obtenerProductoUseCase: ObtenerProductoUseCase,
-    private val compartidor: Compartidor
+    private val compartidor: Compartidor,
+    private val notificador: NotificadorSincronizacion = object : NotificadorSincronizacion {
+        override fun notificarResultado(titulo: String, mensaje: String) {}
+    },
+    private val telemetria: Telemetria = object : Telemetria {
+        override fun registrarEvento(nombre: String, datos: Map<String, Any>) {}
+        override fun registrarError(error: Throwable, contexto: Map<String, String>) {}
+    },
+    private val gestorPermisos: GestorPermisos = object : GestorPermisos {
+        override suspend fun estado(permiso: Permiso): EstadoPermiso = EstadoPermiso.Concedido
+        override suspend fun solicitar(permiso: Permiso): EstadoPermiso = EstadoPermiso.Concedido
+        override fun abrirAjustes() {}
+    }
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProductoUiState())
@@ -38,7 +55,39 @@ class ProductoViewModel(
 
     init {
         iniciarObservacion()
+        iniciarObservacionContadores()
         actualizarMarcaSincronizacion()
+        verificarPermisoNotificaciones()
+    }
+
+    fun verificarPermisoNotificaciones() {
+        viewModelScope.launch {
+            val estado = gestorPermisos.estado(Permiso.NOTIFICACIONES)
+            _uiState.update { it.copy(estadoPermisoNotificaciones = estado) }
+        }
+    }
+
+    fun solicitarPermisoNotificaciones(onResultado: (EstadoPermiso) -> Unit = {}) {
+        viewModelScope.launch {
+            val estado = gestorPermisos.solicitar(Permiso.NOTIFICACIONES)
+            _uiState.update { it.copy(estadoPermisoNotificaciones = estado) }
+            telemetria.registrarEvento(
+                nombre = "permission_result",
+                datos = mapOf(
+                    "permiso" to Permiso.NOTIFICACIONES.name,
+                    "resultado" to when (estado) {
+                        is EstadoPermiso.Concedido -> "concedido"
+                        is EstadoPermiso.Denegado -> "denegado"
+                        is EstadoPermiso.DenegadoParaSiempre -> "denegado_permanente"
+                    }
+                )
+            )
+            onResultado(estado)
+        }
+    }
+
+    fun abrirAjustesPermiso() {
+        gestorPermisos.abrirAjustes()
     }
 
     fun actualizarMarcaSincronizacion() {
@@ -86,6 +135,19 @@ class ProductoViewModel(
         }
     }
 
+    private fun iniciarObservacionContadores() {
+        viewModelScope.launch {
+            repositorio.observarContadores().collect { (pendientes, fallidas) ->
+                _uiState.update { state ->
+                    state.copy(
+                        cantidadPendientes = pendientes,
+                        cantidadFallidas = fallidas
+                    )
+                }
+            }
+        }
+    }
+
     fun cargarProductos() {
         iniciarObservacion()
         if (_uiState.value.productos.isEmpty()) {
@@ -94,8 +156,10 @@ class ProductoViewModel(
         sincronizar()
     }
 
-    fun sincronizar() {
+    fun sincronizar(modo: String = "manual") {
         viewModelScope.launch {
+            val inicioMs = pe.edu.upeu.pharmamobile.tiempoActualEpochMillis()
+            telemetria.registrarEvento("sync_start", mapOf("modo" to modo))
             _uiState.update { it.copy(sincronizando = true, avisoRed = null) }
             try {
                 repositorio.sincronizar()
@@ -108,12 +172,26 @@ class ProductoViewModel(
                     }
                     state.copy(
                         sincronizando = false,
+                        conectado = true,
                         avisoRed = null,
                         fase = fase,
                         ultimaSincronizacionTimestamp = nuevoTimestamp,
                         ultimaSincronizacion = AntiguedadSincronizacion.formatear(nuevoTimestamp)
                     )
                 }
+                notificador.notificarResultado(
+                    titulo = "Catálogo Sincronizado",
+                    mensaje = "Sincronización completada exitosamente con PharmaSoft."
+                )
+                val duracionMs = pe.edu.upeu.pharmamobile.tiempoActualEpochMillis() - inicioMs
+                telemetria.registrarEvento(
+                    nombre = "sync_success",
+                    datos = mapOf(
+                        "duracion_ms" to duracionMs,
+                        "pendientes_restantes" to _uiState.value.cantidadPendientes,
+                        "fallidas_restantes" to _uiState.value.cantidadFallidas
+                    )
+                )
             } catch (e: CancellationException) {
                 _uiState.update { it.copy(sincronizando = false) }
                 throw e
@@ -126,10 +204,23 @@ class ProductoViewModel(
                     }
                     state.copy(
                         sincronizando = false,
+                        conectado = false,
                         avisoRed = "Sin conexión: mostrando datos guardados localmente.",
                         fase = fase
                     )
                 }
+                notificador.notificarResultado(
+                    titulo = "Modo Offline Activo",
+                    mensaje = "Sin conexión a internet. Los datos se guardan localmente en SQLite."
+                )
+                telemetria.registrarEvento(
+                    nombre = "sync_failure",
+                    datos = mapOf(
+                        "motivo" to "sin_conexion",
+                        "transitorio" to true,
+                        "intentos" to 1
+                    )
+                )
             } catch (e: ErrorApi.TiempoAgotado) {
                 _uiState.update { state ->
                     val fase = if (state.productos.isEmpty()) {
@@ -139,10 +230,19 @@ class ProductoViewModel(
                     }
                     state.copy(
                         sincronizando = false,
+                        conectado = false,
                         avisoRed = "Tiempo de espera agotado: mostrando datos locales.",
                         fase = fase
                     )
                 }
+                telemetria.registrarEvento(
+                    nombre = "sync_failure",
+                    datos = mapOf(
+                        "motivo" to "tiempo_agotado",
+                        "transitorio" to true,
+                        "intentos" to 1
+                    )
+                )
             } catch (e: ErrorApi.NoAutorizado) {
                 _uiState.update {
                     it.copy(
@@ -151,6 +251,7 @@ class ProductoViewModel(
                         mensaje = e.message
                     )
                 }
+                telemetria.registrarError(e, mapOf("accion" to "sincronizar", "error" to "401_no_autorizado"))
             } catch (e: ErrorApi.Prohibido) {
                 _uiState.update {
                     it.copy(
@@ -158,195 +259,221 @@ class ProductoViewModel(
                         mensaje = "Permiso denegado: ${e.message}"
                     )
                 }
+                telemetria.registrarError(e, mapOf("accion" to "sincronizar", "error" to "403_prohibido"))
             } catch (e: Exception) {
-                _uiState.update { state ->
-                    if (state.productos.isEmpty()) {
-                        state.copy(
-                            sincronizando = false,
-                            fase = ProductoUiState.Fase.Error(e.message ?: "Error al sincronizar"),
-                            mensaje = e.message ?: "Error al sincronizar"
-                        )
-                    } else {
-                        state.copy(
-                            sincronizando = false,
-                            avisoRed = "No se pudo sincronizar: ${e.message ?: "Servidor no disponible"}"
-                        )
-                    }
+                _uiState.update {
+                    it.copy(
+                        sincronizando = false,
+                        fase = ProductoUiState.Fase.Error(e.message ?: "Error al sincronizar"),
+                        mensaje = e.message ?: "Error al sincronizar"
+                    )
                 }
+                telemetria.registrarError(e, mapOf("accion" to "sincronizar", "error" to "inesperado"))
             }
+        }
+    }
+
+    fun reintentarFila(id: Long) {
+        viewModelScope.launch {
+            repositorio.reintentarFila(id)
+            actualizarMarcaSincronizacion()
+            telemetria.registrarEvento("sync_reintento_manual_fila", mapOf("producto_id" to id))
+        }
+    }
+
+    fun reintentarTodasLasFallidas() {
+        viewModelScope.launch {
+            repositorio.reintentarTodasLasFallidas()
+            actualizarMarcaSincronizacion()
+            telemetria.registrarEvento("sync_reintento_manual_todas", emptyMap())
         }
     }
 
     fun buscarPorId(idStr: String) {
         val id = idStr.toLongOrNull()
         if (id == null) {
-            _uiState.update { it.copy(fase = ProductoUiState.Fase.Error("ID inválido")) }
+            _uiState.update { it.copy(mensaje = "Por favor ingrese un ID válido") }
             return
         }
         viewModelScope.launch {
-            _uiState.update { it.copy(fase = ProductoUiState.Fase.Cargando) }
+            _uiState.update { it.copy(fase = ProductoUiState.Fase.Cargando, mensaje = "") }
             try {
-                val p = obtenerProductoUseCase(id)
-                _uiState.update { it.copy(fase = ProductoUiState.Fase.ConProductos(listOf(p))) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: ErrorApi) {
-                _uiState.update { it.copy(fase = ProductoUiState.Fase.Error(e.message)) }
+                val producto = obtenerProductoUseCase(id)
+                _uiState.update {
+                    it.copy(fase = ProductoUiState.Fase.ConProductos(listOf(producto)))
+                }
+            } catch (e: ErrorApi.NoEncontrado) {
+                _uiState.update {
+                    it.copy(fase = ProductoUiState.Fase.Error(e.message), mensaje = e.message)
+                }
             } catch (e: Exception) {
-                _uiState.update { it.copy(fase = ProductoUiState.Fase.Error(e.message ?: "Error desconocido")) }
+                _uiState.update {
+                    it.copy(fase = ProductoUiState.Fase.Error(e.message ?: "Error al buscar"), mensaje = e.message ?: "Error al buscar")
+                }
             }
         }
     }
 
-    fun onNombreChange(nuevoNombre: String) {
-        _uiState.update { it.copy(nombre = nuevoNombre, nombreError = null) }
-    }
-
-    fun onPrecioChange(nuevoPrecio: String) {
-        _uiState.update { it.copy(precio = nuevoPrecio, precioError = null) }
-    }
-
-    fun onStockChange(nuevoStock: String) {
-        _uiState.update { it.copy(stock = nuevoStock, stockError = null) }
-    }
-
-    fun registrarProducto() {
-        val operacion = _uiState.value.operacion
-        if (operacion is ProductoUiState.Operacion.EnCurso) return
-
-        val id = _uiState.value.productoEditandoId
-        if (id != null) {
-            actualizarProducto(id)
-            return
-        }
-
-        ejecutarOperacion(ProductoUiState.Operacion.Tipo.Crear) {
-            val currentState = _uiState.value
-            val p = Producto(
-                id = 0,
-                nombre = currentState.nombre,
-                precio = currentState.precio.toDoubleOrNull() ?: 0.0,
-                stock = currentState.stock.toIntOrNull() ?: 0,
-                activo = true,
-                descripcion = "",
-                imagen = "",
-                categoria = "",
-                categoriaId = 1L
+    fun onNombreChange(valor: String) {
+        _uiState.update {
+            it.copy(
+                nombre = valor,
+                nombreError = if (valor.isBlank()) "El nombre es obligatorio" else null
             )
-            val guardado = registrarProductoUseCase(p)
-            val msg = if (guardado.pendiente) {
-                "Producto guardado localmente (pendiente de sincronización)."
+        }
+    }
+
+    fun onPrecioChange(valor: String) {
+        val error = when {
+            valor.isBlank() -> "El precio es obligatorio"
+            valor.toDoubleOrNull() == null -> "Debe ser un número válido"
+            (valor.toDoubleOrNull() ?: 0.0) <= 0.0 -> "El precio debe ser mayor a 0"
+            else -> null
+        }
+        _uiState.update { it.copy(precio = valor, precioError = error) }
+    }
+
+    fun onStockChange(valor: String) {
+        val error = when {
+            valor.isBlank() -> "El stock es obligatorio"
+            valor.toIntOrNull() == null -> "Debe ser un número entero"
+            (valor.toIntOrNull() ?: 0) < 0 -> "El stock no puede ser negativo"
+            else -> null
+        }
+        _uiState.update { it.copy(stock = valor, stockError = error) }
+    }
+
+    fun registrarProducto() = guardarProducto()
+
+    fun guardarProducto() {
+        val state = _uiState.value
+        val precioDouble = state.precio.toDoubleOrNull() ?: 0.0
+        val stockInt = state.stock.toIntOrNull() ?: 0
+
+        viewModelScope.launch {
+            val esEdicion = state.productoEditandoId != null
+            val tipoOperacion = if (esEdicion) {
+                ProductoUiState.Operacion.Tipo.Actualizar
             } else {
-                "Producto registrado y sincronizado exitosamente."
+                ProductoUiState.Operacion.Tipo.Crear
             }
-            _uiState.update {
-                it.copy(
-                    nombre = "",
-                    precio = "",
-                    stock = "",
-                    mensaje = msg,
-                    esExito = true
-                )
-            }
-            // NO se realiza recarga manual: el Flow de SQLDelight actualiza la UI automáticamente
-        }
-    }
 
-    fun actualizarProducto(id: Long) {
-        ejecutarOperacion(ProductoUiState.Operacion.Tipo.Actualizar) {
-            val currentState = _uiState.value
-            val p = Producto(
-                id = id,
-                nombre = currentState.nombre,
-                precio = currentState.precio.toDoubleOrNull() ?: 0.0,
-                stock = currentState.stock.toIntOrNull() ?: 0,
-                activo = true,
-                descripcion = "",
-                imagen = "",
-                categoria = "",
-                categoriaId = 1L
-            )
-            actualizarProductoUseCase(p)
             _uiState.update {
                 it.copy(
-                    productoEditandoId = null,
-                    nombre = "",
-                    precio = "",
-                    stock = "",
-                    mensaje = "Producto actualizado exitosamente.",
-                    esExito = true
+                    operacion = ProductoUiState.Operacion.EnCurso(tipoOperacion),
+                    mensaje = ""
                 )
             }
-            // NO se realiza recarga manual: el Flow de SQLDelight actualiza la UI automáticamente
+
+            try {
+                if (esEdicion) {
+                    val p = Producto(
+                        id = state.productoEditandoId ?: 0L,
+                        nombre = state.nombre.trim(),
+                        precio = precioDouble,
+                        stock = stockInt,
+                        categoriaId = 1L
+                    )
+                    actualizarProductoUseCase(p)
+                    _uiState.update {
+                        it.copy(
+                            operacion = ProductoUiState.Operacion.Inactiva,
+                            mensaje = "Producto actualizado correctamente",
+                            esExito = true,
+                            productoEditandoId = null,
+                            nombre = "",
+                            precio = "",
+                            stock = ""
+                        )
+                    }
+                } else {
+                    val p = Producto(
+                        nombre = state.nombre.trim(),
+                        precio = precioDouble,
+                        stock = stockInt,
+                        categoriaId = 1L
+                    )
+                    registrarProductoUseCase(p)
+                    _uiState.update {
+                        it.copy(
+                            operacion = ProductoUiState.Operacion.Inactiva,
+                            mensaje = "Producto registrado localmente (pendiente de sincronizar)",
+                            esExito = true,
+                            nombre = "",
+                            precio = "",
+                            stock = ""
+                        )
+                    }
+                }
+            } catch (e: ErrorApi.Validacion) {
+                _uiState.update {
+                    it.copy(
+                        operacion = ProductoUiState.Operacion.Fallida(
+                            tipo = tipoOperacion,
+                            error = e.message
+                        ),
+                        nombreError = e.validationErrors["nombre"],
+                        precioError = e.validationErrors["precio"],
+                        stockError = e.validationErrors["stock"],
+                        mensaje = e.message,
+                        esExito = false
+                    )
+                }
+                telemetria.registrarError(e, mapOf("accion" to "guardar_producto", "error" to "validacion"))
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        operacion = ProductoUiState.Operacion.Fallida(
+                            tipo = tipoOperacion,
+                            error = e.message ?: "Error al guardar el producto"
+                        ),
+                        mensaje = e.message ?: "Error al guardar el producto",
+                        esExito = false
+                    )
+                }
+                telemetria.registrarError(e, mapOf("accion" to "guardar_producto"))
+            }
         }
     }
 
     fun eliminarProducto(id: Long) {
-        ejecutarOperacion(ProductoUiState.Operacion.Tipo.Eliminar) {
-            eliminarProductoUseCase(id)
+        viewModelScope.launch {
             _uiState.update {
                 it.copy(
-                    mensaje = "Producto eliminado exitosamente.",
-                    esExito = true
+                    operacion = ProductoUiState.Operacion.EnCurso(ProductoUiState.Operacion.Tipo.Eliminar),
+                    mensaje = ""
                 )
             }
-            // NO se realiza recarga manual: el Flow de SQLDelight actualiza la UI automáticamente
-        }
-    }
-
-    private fun ejecutarOperacion(
-        tipo: ProductoUiState.Operacion.Tipo,
-        block: suspend () -> Unit
-    ) {
-        _uiState.update {
-            it.copy(
-                nombreError = null, precioError = null, stockError = null,
-                mensaje = "", esExito = false,
-                operacion = ProductoUiState.Operacion.EnCurso(tipo)
-            )
-        }
-        viewModelScope.launch {
             try {
-                block()
-                _uiState.update { it.copy(operacion = ProductoUiState.Operacion.Inactiva) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: ErrorApi.Validacion) {
+                eliminarProductoUseCase(id)
                 _uiState.update {
                     it.copy(
-                        nombreError = e.validationErrors["nombre"],
-                        precioError = e.validationErrors["precio"],
-                        stockError = e.validationErrors["stock"],
-                        operacion = ProductoUiState.Operacion.Fallida(tipo, e.message)
-                    )
-                }
-            } catch (e: ErrorApi.NoAutorizado) {
-                _uiState.update {
-                    it.copy(
-                        operacion = ProductoUiState.Operacion.Fallida(tipo, e.message),
-                        fase = ProductoUiState.Fase.Error(e.message),
-                        mensaje = e.message
-                    )
-                }
-            } catch (e: ErrorApi) {
-                _uiState.update {
-                    it.copy(
-                        operacion = ProductoUiState.Operacion.Fallida(tipo, e.message),
-                        mensaje = e.message
+                        operacion = ProductoUiState.Operacion.Inactiva,
+                        mensaje = "Producto eliminado correctamente",
+                        esExito = true
                     )
                 }
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
-                        operacion = ProductoUiState.Operacion.Fallida(tipo, e.message ?: "Error desconocido"),
-                        mensaje = e.message ?: "Error desconocido"
+                        operacion = ProductoUiState.Operacion.Fallida(
+                            tipo = ProductoUiState.Operacion.Tipo.Eliminar,
+                            error = e.message ?: "Error al eliminar"
+                        ),
+                        mensaje = e.message ?: "Error al eliminar",
+                        esExito = false
                     )
                 }
+                telemetria.registrarError(e, mapOf("accion" to "eliminar_producto", "id" to id.toString()))
             }
         }
     }
 
     fun limpiarEstado() {
+        limpiarErrores()
+    }
+
+    fun limpiarErrores() {
         _uiState.update { state ->
             val fase = if (state.productos.isEmpty()) {
                 ProductoUiState.Fase.SinProductos

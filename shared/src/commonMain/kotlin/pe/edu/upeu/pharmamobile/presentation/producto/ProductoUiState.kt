@@ -1,12 +1,17 @@
 package pe.edu.upeu.pharmamobile.presentation.producto
 
 import pe.edu.upeu.pharmamobile.domain.model.Producto
+import pe.edu.upeu.pharmamobile.domain.permission.EstadoPermiso
 
 data class ProductoUiState(
     val fase: Fase = Fase.Cargando,
     val productos: List<Producto> = emptyList(),
     val sincronizando: Boolean = false,
     val avisoRed: String? = null,
+    val conectado: Boolean = true,
+    val cantidadPendientes: Long = 0L,
+    val cantidadFallidas: Long = 0L,
+    val estadoPermisoNotificaciones: EstadoPermiso = EstadoPermiso.Denegado,
     val ultimaSincronizacion: String = "Nunca sincronizado",
     val ultimaSincronizacionTimestamp: Long? = null,
     val nombre: String = "",

@@ -1,9 +1,11 @@
 package pe.edu.upeu.pharmamobile.presentation.producto
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -20,6 +22,12 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.SyncProblem
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,6 +44,7 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import pe.edu.upeu.pharmamobile.domain.model.Producto
 import pe.edu.upeu.pharmamobile.domain.model.Sesion
+import pe.edu.upeu.pharmamobile.domain.permission.EstadoPermiso
 import pe.edu.upeu.pharmamobile.platform.formatearSoles
 
 import androidx.compose.material.icons.filled.Lock
@@ -59,6 +68,7 @@ fun ProductoScreen(
         viewModel.iniciarObservacion()
         viewModel.sincronizar()
         viewModel.iniciarTickerAntiguedad()
+        viewModel.verificarPermisoNotificaciones()
     }
 
     LaunchedEffect(state.fase) {
@@ -97,6 +107,7 @@ fun ProductoScreen(
                     .padding(if (isCompact) 12.dp else 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Banner de sesión caducada
                 if (sesion?.requiereRenovacion == true) {
                     Card(
                         colors = CardDefaults.cardColors(
@@ -129,6 +140,93 @@ fun ProductoScreen(
                                 )
                             }
                         }
+                    }
+                }
+
+                // Banner de Permiso Nativo de Notificaciones (Paso 5)
+                when (state.estadoPermisoNotificaciones) {
+                    is EstadoPermiso.Denegado -> {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Notifications,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = "Activa notificaciones nativas para avisos de sincronización",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                                Button(
+                                    onClick = { viewModel.solicitarPermisoNotificaciones() },
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Activar", fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+                    is EstadoPermiso.DenegadoParaSiempre -> {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Settings,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = "Notificaciones bloqueadas: habilítalas en Ajustes",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                OutlinedButton(
+                                    onClick = { viewModel.abrirAjustesPermiso() },
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Ajustes", fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+                    is EstadoPermiso.Concedido -> {
+                        // Estado otorgado transparente
                     }
                 }
 
@@ -205,37 +303,122 @@ fun ProductoScreen(
                         }
                     }
                 }
-                // Indicador de antigüedad de sincronización en lenguaje natural
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+
+                // Panel Paso 4: Estado Visible (Conectividad, Sincronización en curso, Pendientes, Fallidas, Antigüedad)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.Refresh,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = state.ultimaSincronizacion,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    IconButton(
-                        onClick = { viewModel.sincronizar() },
-                        enabled = !state.sincronizando,
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Sync,
-                            contentDescription = "Sincronizar ahora",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .background(
+                                            color = if (state.conectado) Color(0xFF2E7D32) else Color(0xFFE65100),
+                                            shape = CircleShape
+                                        )
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = if (state.conectado) "En línea" else "Modo Desconectado",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (state.conectado) Color(0xFF2E7D32) else Color(0xFFE65100)
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = state.ultimaSincronizacion,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.sincronizar() },
+                                enabled = !state.sincronizando,
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                if (state.sincronizando) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Filled.Sync,
+                                        contentDescription = "Sincronizar ahora",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+
+                        // Fila de Contadores Reactivos de SQLDelight
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (state.cantidadPendientes > 0) Color(0xFFFFF3E0) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (state.cantidadPendientes > 0) Color(0xFFFFB74D) else Color.Transparent
+                                )
+                            ) {
+                                Text(
+                                    text = "Pendientes: ${state.cantidadPendientes}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (state.cantidadPendientes > 0) Color(0xFFE65100) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (state.cantidadFallidas > 0) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (state.cantidadFallidas > 0) MaterialTheme.colorScheme.error else Color.Transparent
+                                )
+                            ) {
+                                Text(
+                                    text = "Fallidas: ${state.cantidadFallidas}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (state.cantidadFallidas > 0) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+
+                            Spacer(Modifier.weight(1f))
+
+                            if (state.cantidadFallidas > 0) {
+                                TextButton(
+                                    onClick = { viewModel.reintentarTodasLasFallidas() },
+                                    enabled = !state.sincronizando,
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(Icons.Filled.Sync, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Reintentar fallidas", fontSize = 11.sp)
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -366,7 +549,8 @@ fun ProductoScreen(
                                     puedeEscribir = puedeEscribir,
                                     onEdit = { viewModel.onEditarProducto(producto) },
                                     onDelete = { showDeleteDialog = producto.id },
-                                    onShare = { viewModel.compartirProducto(producto) }
+                                    onShare = { viewModel.compartirProducto(producto) },
+                                    onRetryRow = { viewModel.reintentarFila(producto.id) }
                                 )
                             }
                         }
@@ -381,24 +565,23 @@ fun ProductoScreen(
     }
 
     if (showDeleteDialog != null) {
+        val idAEliminar = showDeleteDialog!!
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
-            icon = { Icon(Icons.Filled.Warning, contentDescription = null) },
-            title = { Text("¿Eliminar producto?") },
-            text = { Text("Esta acción dará de baja el producto.") },
+            title = { Text("Confirmar eliminación") },
+            text = { Text("¿Está seguro de que desea eliminar este producto?") },
             confirmButton = {
-                Button(
+                TextButton(
                     onClick = {
-                        viewModel.eliminarProducto(showDeleteDialog!!)
+                        viewModel.eliminarProducto(idAEliminar)
                         showDeleteDialog = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    }
                 ) {
-                    Text("Eliminar")
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showDeleteDialog = null }) {
+                TextButton(onClick = { showDeleteDialog = null }) {
                     Text("Cancelar")
                 }
             }
@@ -408,19 +591,7 @@ fun ProductoScreen(
 
 @Composable
 fun FormularioProducto(state: ProductoUiState, viewModel: ProductoViewModel) {
-    val enCurso = state.operacion is ProductoUiState.Operacion.EnCurso
-    val editando = state.productoEditandoId != null
-    var isExpanded by remember { mutableStateOf(false) }
-
-    LaunchedEffect(editando) {
-        if (editando) isExpanded = true
-    }
-
-    LaunchedEffect(state.fase, enCurso, editando) {
-        if (!editando && !enCurso && state.nombre.isEmpty() && state.precio.isEmpty() && state.stock.isEmpty()) {
-            isExpanded = false
-        }
-    }
+    var expanded by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -428,116 +599,100 @@ fun FormularioProducto(state: ProductoUiState, viewModel: ProductoViewModel) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (editando) "Editar producto" else "Nuevo producto",
+                    text = if (state.productoEditandoId != null) "Editar Producto" else "Nuevo Producto",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
                 )
-                IconButton(onClick = { 
-                    if (editando && isExpanded) viewModel.onCancelarEdicion()
-                    isExpanded = !isExpanded 
-                }) {
+                IconButton(onClick = { expanded = !expanded }) {
                     Icon(
-                        imageVector = if (isExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.Add,
-                        contentDescription = if (isExpanded) "Colapsar" else "Expandir",
+                        imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.Add,
+                        contentDescription = if (expanded) "Colapsar" else "Expandir",
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
             AnimatedVisibility(
-                visible = isExpanded,
+                visible = expanded || state.productoEditandoId != null,
                 enter = expandVertically(),
                 exit = shrinkVertically()
             ) {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedTextField(
                         value = state.nombre,
                         onValueChange = { viewModel.onNombreChange(it) },
-                        label = { Text("Nombre del Producto") },
+                        label = { Text("Nombre del medicamento") },
                         isError = state.nombreError != null,
+                        supportingText = { state.nombreError?.let { Text(it) } },
                         singleLine = true,
-                        enabled = !enCurso,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    if (state.nombreError != null) {
-                        Text(text = state.nombreError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 16.dp))
-                    }
-                    
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            OutlinedTextField(
-                                value = state.precio,
-                                onValueChange = { viewModel.onPrecioChange(it) },
-                                label = { Text("Precio (S/)") },
-                                isError = state.precioError != null,
-                                singleLine = true,
-                                enabled = !enCurso,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            if (state.precioError != null) {
-                                Text(text = state.precioError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 16.dp))
-                            }
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            OutlinedTextField(
-                                value = state.stock,
-                                onValueChange = { viewModel.onStockChange(it) },
-                                label = { Text("Stock") },
-                                isError = state.stockError != null,
-                                singleLine = true,
-                                enabled = !enCurso,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            if (state.stockError != null) {
-                                Text(text = state.stockError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 16.dp))
-                            }
-                        }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = state.precio,
+                            onValueChange = { viewModel.onPrecioChange(it) },
+                            label = { Text("Precio (S/.)") },
+                            isError = state.precioError != null,
+                            supportingText = { state.precioError?.let { Text(it) } },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        OutlinedTextField(
+                            value = state.stock,
+                            onValueChange = { viewModel.onStockChange(it) },
+                            label = { Text("Stock inicial") },
+                            isError = state.stockError != null,
+                            supportingText = { state.stockError?.let { Text(it) } },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
 
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (editando) {
-                            OutlinedButton(
+                        if (state.productoEditandoId != null) {
+                            TextButton(
                                 onClick = { viewModel.onCancelarEdicion() },
-                                enabled = !enCurso,
-                                modifier = Modifier.weight(1f).height(48.dp),
-                                shape = RoundedCornerShape(12.dp)
+                                modifier = Modifier.padding(end = 8.dp)
                             ) {
-                                Text("Cancelar", fontWeight = FontWeight.Bold)
+                                Text("Cancelar")
                             }
                         }
+
                         Button(
-                            onClick = { viewModel.registrarProducto() },
-                            enabled = !enCurso,
-                            modifier = Modifier.weight(1f).height(48.dp),
-                            shape = RoundedCornerShape(12.dp)
+                            onClick = { viewModel.guardarProducto() },
+                            enabled = state.operacion !is ProductoUiState.Operacion.EnCurso
                         ) {
-                            if (enCurso && (state.operacion as ProductoUiState.Operacion.EnCurso).tipo != ProductoUiState.Operacion.Tipo.Eliminar) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
-                            } else {
-                                Text(
-                                    text = if (editando) "Guardar cambios" else "Registrar producto",
-                                    fontWeight = FontWeight.Bold
+                            if (state.operacion is ProductoUiState.Operacion.EnCurso) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
                                 )
+                                Spacer(modifier = Modifier.width(8.dp))
                             }
+                            Text(if (state.productoEditandoId != null) "Actualizar" else "Guardar")
                         }
                     }
                 }
@@ -548,21 +703,17 @@ fun FormularioProducto(state: ProductoUiState, viewModel: ProductoViewModel) {
 
 @Composable
 fun MensajeFase(mensaje: String, esError: Boolean = false) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (esError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surface
-        )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 32.dp, horizontal = 16.dp),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = mensaje,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            textAlign = TextAlign.Center,
-            color = if (esError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (esError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -574,7 +725,8 @@ fun TarjetaProducto(
     puedeEscribir: Boolean = true,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onShare: () -> Unit
+    onShare: () -> Unit,
+    onRetryRow: (() -> Unit)? = null
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -605,33 +757,86 @@ fun TarjetaProducto(
                             style = MaterialTheme.typography.bodySmall,
                             color = if (producto.pendiente) Color(0xFFE65100) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        
+                        // Estado y motivo por fila (Paso 4)
                         if (producto.pendiente) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = Color(0xFFFFF3E0),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB74D)),
-                                modifier = Modifier.padding(top = 2.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            if (producto.esFallida) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.errorContainer,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                                    modifier = Modifier.padding(top = 4.dp).fillMaxWidth()
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.SyncProblem,
-                                        contentDescription = "Pendiente de sincronizar",
-                                        tint = Color(0xFFE65100),
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "Pendiente de sincronizar",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color(0xFFE65100),
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.Warning,
+                                                    contentDescription = "Fallo de sincronización",
+                                                    tint = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = if (producto.falloPermanente) "Fallo permanente" else "Fallido (${producto.intentos}/5 intentos)",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                            if (onRetryRow != null) {
+                                                TextButton(
+                                                    onClick = onRetryRow,
+                                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+                                                ) {
+                                                    Text("Reintentar", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                        if (!producto.ultimoError.isNullOrBlank()) {
+                                            Text(
+                                                text = "Motivo: ${producto.ultimoError}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0xFFFFF3E0),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFB74D)),
+                                    modifier = Modifier.padding(top = 2.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.SyncProblem,
+                                            contentDescription = "Pendiente de sincronizar",
+                                            tint = Color(0xFFE65100),
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        val reintentoStr = if (producto.intentos > 0) " (Reintento ${producto.intentos}/5)" else ""
+                                        Text(
+                                            text = "Pendiente de sincronizar$reintentoStr",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color(0xFFE65100),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
                         }
+
                         if (producto.categoria.isNotBlank()) {
                             Text(
                                 text = producto.categoria,
