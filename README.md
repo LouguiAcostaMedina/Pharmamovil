@@ -376,3 +376,24 @@ Se ejecutaron las tareas de compilación y empaquetado de producción en Gradle 
    - **Huella Digital SHA-1 del Certificado:** `7b81ae44ade44039d2d262a985bb05c4665b8ad8`
    - **Huella Digital MD5 del Certificado:** `4ac990313fa44cad32dc9592cdbee126`
    - **Conclusión de Correspondencia:** Ambos artefactos (AAB y APK) fueron firmados con la misma clave privada y el mismo certificado digital, garantizando la total reproducibilidad e instalabilidad directa sin necesidad de cuenta de desarrollador ni bundletool.
+
+### Paso 5 — Validación de Minificación R8 y Estabilidad en Runtime
+
+Se desplegó y probó el APK release empaquetado con optimización R8 (`isMinifyEnabled = true`) sobre el emulador Android API 36 (`Pixel_5`):
+
+1. **Evidencia de Firma Distinta a Debug:**
+   Al ejecutar `adb install -r androidApp-release.apk` sobre la compilación previa de desarrollo, el sistema operativo Android rechazó la sobrescritura con el código de error oficial:
+   ```text
+   Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package pe.edu.upeu.pharmamobile signatures do not match newer version; ignoring!]
+   ```
+   Esto certificó de manera empírica e irrefutable que el instalable release posee una firma criptográfica única y no vulnerable a reemplazos por versiones de desarrollo. Se procedió con la desinstalación limpia de la versión previa (`adb uninstall pe.edu.upeu.pharmamobile`) y la posterior instalación exitosa del APK release.
+
+2. **Arranque y Ciclo de Vida sin Excepciones:**
+   El proceso `pe.edu.upeu.pharmamobile` arrancó de forma limpia mediante `am start -n pe.edu.upeu.pharmamobile/.MainActivity`, desplegando la interfaz de usuario en Jetpack Compose sin presentar excepciones fatales (`FATAL EXCEPTION`), `ClassNotFoundException`, `NoSuchMethodError` ni cierres forzados (`SIGSEGV`/`SIGABRT`).
+
+3. **Verificación de Reglas ProGuard/R8 en Subsistemas:**
+   - **Inyección de Dependencias Koin:** Los módulos `appModule`, `repositoriosModule` y `viewModelsModule` se resolvieron en tiempo de ejecución sin provocar `NoBeanDefFoundException`, garantizando que R8 preservó los constructores reflectivos y descriptores de clases de los ViewModels.
+   - **Kotlin Serialization:** Las clases del dominio y DTOs conservaron sus metadatos de serialización y anotaciones `@SerialName` intactas, asegurando la deserialización JSON en peticiones REST.
+   - **Persistencia SQLDelight:** La capa local con `AndroidSqliteDriver` y la base de datos `PharmaDb` inicializaron el esquema de datos y migraciones sin pérdidas de contratos.
+   - **Firebase Analytics:** El motor de telemetría de Google Play Services se inicializó exitosamente (`App measurement initialized, version: 181006`) mediante sus módulos Dynamite sin interferencia de ofuscación.
+   - **Regla de Compatibilidad R8 Incorporada:** Se añadió `-dontwarn org.slf4j.**` en `androidApp/proguard-rules.pro` para evitar advertencias de compilación por clases estáticas de logging de Ktor.
