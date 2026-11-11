@@ -9,3 +9,5 @@ class AndroidPlatform : Platform {
 actual fun getPlatform(): Platform = AndroidPlatform()
 
 actual fun tiempoActualEpochSegundos(): Long = System.currentTimeMillis() / 1000L
+
+actual fun tiempoActualEpochMillis(): Long = System.currentTimeMillis()

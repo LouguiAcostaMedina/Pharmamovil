@@ -1,3 +1,5 @@
+@file:JvmName("PlatformDesktopKt")
+
 package pe.edu.upeu.pharmamobile
 
 class DesktopPlatform : Platform {
@@ -7,3 +9,6 @@ class DesktopPlatform : Platform {
 actual fun getPlatform(): Platform = DesktopPlatform()
 
 actual fun tiempoActualEpochSegundos(): Long = System.currentTimeMillis() / 1000L
+
+actual fun tiempoActualEpochMillis(): Long = System.currentTimeMillis()
+

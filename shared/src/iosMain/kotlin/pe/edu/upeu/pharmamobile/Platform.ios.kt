@@ -11,3 +11,5 @@ class IOSPlatform: Platform {
 actual fun getPlatform(): Platform = IOSPlatform()
 
 actual fun tiempoActualEpochSegundos(): Long = NSDate().timeIntervalSince1970.toLong()
+
+actual fun tiempoActualEpochMillis(): Long = (NSDate().timeIntervalSince1970 * 1000.0).toLong()
